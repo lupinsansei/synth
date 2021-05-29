@@ -1,0 +1,285 @@
+package Voice;
+
+use Moose; # automatically turns on strict and warnings
+#use CHI::Memoize qw(:all);
+#use Storable qw(dclone);
+use feature qw(switch);
+use Data::Dumper;
+use Audio::Wav;
+
+use experimental qw( switch );
+
+has 'wave'					=> ( is => 'rw', isa => 'Str', default => 'sine' );
+has 'file'					=> ( is => 'rw', isa => 'Str', default => '' );
+has 'tuned'					=> ( is => 'rw', isa => 'Bool', default => 0 );	# noise only
+
+has 'volume_multiplier'		=> ( is => 'rw', isa => 'Num', default => 1 );
+has 'freq_multiplier'		=> ( is => 'rw', isa => 'Num', default => 1 );
+
+has 'volume_decay'		=> ( is => 'rw', isa => 'Num', default => 0 );
+has 'freq_decay'		=> ( is => 'rw', isa => 'Num', default => 0 );
+
+# delay in ms until the sounds starts - can be used to play 2 sounds at once in one patch with the mixing
+has 'delay'				=> ( is => 'rw', isa => 'Num', default => 0 );
+
+has 'modulators'		=> ( is => 'rw', isa => 'ArrayRef[Voice]', required => 0 );
+
+sub render {
+	my ($self, $samplerate, $bits, $length, $frequency, $left_volume, $right_volume) = @_;
+
+	my $modulator_wave_ref = undef;
+
+	# recursive part for modulating
+	if( $self->modulators && scalar @{$self->modulators} ) {
+
+		# could run this across lots of CPUs
+		my @waves = ();
+		foreach my $voice (@{$self->modulators}) {
+
+			my $samples = $voice->render($samplerate, $bits, $length, $frequency, 1, 1);
+
+			push( @waves, $samples );
+		}
+
+		$modulator_wave_ref = Patch::mix_samples( \@waves );
+	}
+
+	# if( $self->delay ) {
+				# # convert delay ms into samples
+				# my $delay_samples = ($samplerate/$length) * ($self->delay * 1000);
+				# print $delay_samples;
+
+				# # put loads of empty samples at the beginning and remove that many from the end
+				# # remember it's left and right samples
+
+			# }
+
+	given($self->wave) {
+
+		when ("sine") {
+
+			return make_sine( $samplerate, $bits, $length,
+				$frequency * $self->freq_multiplier,
+				$left_volume * $self->volume_multiplier,
+				$right_volume * $self->volume_multiplier,
+				$self->freq_decay,
+				$modulator_wave_ref,
+				$self->volume_decay
+			);
+		}
+
+		when ("noise") {
+			return make_noise( $samplerate, $bits, $length,
+				$frequency * $self->freq_multiplier,
+				$left_volume * $self->volume_multiplier,
+				$right_volume * $self->volume_multiplier,
+				$self->freq_decay,
+				$self->volume_decay,
+				$self->tuned
+			);
+		}
+
+		when ("file") {
+
+			return make_wav_file( $samplerate, $bits, $length,
+				$frequency * $self->freq_multiplier,
+				$left_volume * $self->volume_multiplier,
+				$right_volume * $self->volume_multiplier,
+				$self->freq_decay,
+				$self->volume_decay,
+				$modulator_wave_ref,
+				$self->file
+			);
+		}
+	}
+}
+
+#memoize( 'make_sine', driver => 'File', root_dir => 'c:\Cache', expires_in => '1h' );
+
+sub make_sine {
+	my( $samplerate, $bits, $length, $frequency, $left_volume, $right_volume, $freq_decay, $modulator_wave_ref, $volume_decay ) = @_;
+
+	my $samples = $samplerate * $length;
+
+	my @data_l = ();
+	my @data_r = ();
+
+	my $scale = (2**$bits)/2;
+
+	my $carrier_counter = 0;
+	my $modulator_increment = 0;
+	my $modulator_counter = 0;
+
+	for( my $i=0; $i <$samples; $i++) {
+
+		if( $left_volume > 0 || $right_volume > 0 ) {
+
+			# Calculate the pitch, but only bother if volume greater than zero else you can't hear it
+			my $v = sin($carrier_counter*6.28) * $scale;
+
+			$data_l[$i] = $v * $left_volume;
+			$data_r[$i] = $v * $right_volume;
+
+		} else {
+			$data_l[$i] = 0;
+			$data_r[$i] = 0;
+		}
+
+		# modulate the carrier frequency with the current level of modulator_v
+		if( $modulator_wave_ref ) {
+			$carrier_counter += ($frequency + $modulator_wave_ref->[0]->[$i] )/$samplerate;		# hack: we are only using the left channel here
+		} else {
+			$carrier_counter += $frequency/$samplerate;
+		}
+
+		# volume decay
+		if( $volume_decay && $left_volume > 0) {
+			$left_volume -= $volume_decay;
+		}
+
+		if( $volume_decay && $right_volume > 0 ) {
+			$right_volume -= $volume_decay;
+		}
+
+		# frequency decay
+		if( $freq_decay && $frequency > 0 ) {
+			$frequency -= $freq_decay;
+
+		}
+	}
+
+	return [ \@data_l, \@data_r ];
+}
+
+sub make_noise {
+	my( $samplerate, $bits, $length, $frequency, $left_volume, $right_volume, $freq_decay, $volume_decay, $tuned ) = @_;
+
+	my @data_l = ();
+	my @data_r = ();
+
+	my $samples = $samplerate * $length;
+
+	my $scale = (2**$bits)/2;
+
+	my $carrier_increment = $frequency/$samplerate;
+	my $carrier_counter = 0;
+	my $last_v = 0;
+
+	for( my $i=0; $i <$samples; $i++) {
+
+		my $step = $samplerate/$frequency;
+
+		if( $left_volume > 0 || $right_volume > 0 ) {
+
+			my $v;
+			if( $tuned ) {
+				unless( $i % $step == 0 ) {		# this makes the noise tuned, which sounds okay sometimes, like 80s computer
+					$v = $last_v;
+				} else {
+					$v = int(rand($scale));
+					$last_v = $v;
+				}
+			} else {
+				$v = int(rand($scale));
+			}
+
+			$data_l[$i] = $v * $left_volume;
+			$data_r[$i] = $v * $right_volume;
+		} else {
+			$data_l[$i] = 0;
+			$data_r[$i] = 0;
+		}
+
+		$carrier_counter += $carrier_increment;
+
+		# volume decay
+		if( $left_volume > 0 && $volume_decay > 0) {
+			$left_volume -= $volume_decay;
+		}
+
+		if( $right_volume > 0 && $volume_decay > 0 ) {
+			$right_volume -= $volume_decay;
+		}
+
+		# frequency decay
+		if( $frequency > 0 && $freq_decay > 0 ) {
+			$frequency -= $freq_decay;
+		}
+	}
+
+	return [ \@data_l, \@data_r ];
+}
+
+sub make_wav_file {
+
+	my( $samplerate, $bits, $length, $frequency, $left_volume, $right_volume, $freq_decay, $modulator_wave_ref, $volume_decay, $file ) = @_;
+
+	# open the wav file and get the samples
+	my $wav = new Audio::Wav;
+	my $read = $wav->read($file);
+
+	# default to the length of the wav file unless specified
+	my $samples;
+	if( $length == 0 ) {
+		$samples = $read->length_samples();
+	} else {
+		$samples = $samplerate * $length;
+	}
+
+	#print "Sample length = $length\n";
+
+	my @data_l = ();
+	my @data_r = ();
+
+	my $scale = (2**$bits)/2;
+
+	my $carrier_counter = 0;
+	my $modulator_increment = 0;
+	my $modulator_counter = 0;
+
+
+
+	for( my $i=0; $i <$samples; $i++) {
+
+		my @channels = $read->read();
+
+		if( ($left_volume > 0 || $right_volume > 0 ) && ( $read->position_samples() < $read->length_samples() ) ) {
+
+			# Calculate the pitch, but only bother if volume greater than zero else you can't hear it
+			#my $v = sin($carrier_counter*6.28) * $scale;
+
+			$data_l[$i] = $channels[0] * $left_volume;
+			$data_r[$i] = $channels[1] * $right_volume;
+
+		} else {
+			$data_l[$i] = 0;
+			$data_r[$i] = 0;
+		}
+
+		# modulate the carrier frequency with the current level of modulator_v
+		if( $modulator_wave_ref ) {
+			$carrier_counter += ($frequency + $modulator_wave_ref->[0]->[$i] )/$samplerate;		# hack: we are only using the left channel here
+		} else {
+			$carrier_counter += $frequency/$samplerate;
+		}
+
+		# volume decay
+		if( $volume_decay && $left_volume > 0) {
+			$left_volume -= $volume_decay;
+		}
+
+		if( $volume_decay && $right_volume > 0 ) {
+			$right_volume -= $volume_decay;
+		}
+
+		# frequency decay
+		if( $freq_decay && $frequency > 0 ) {
+			$frequency -= $freq_decay;
+
+		}
+	}
+
+	return [ \@data_l, \@data_r ];
+}
+
+return 1;
