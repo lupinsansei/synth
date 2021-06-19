@@ -100,9 +100,9 @@ my $synth = new Synth(
 		),
 		"amen" => new Patch(
 			name => "amen",
-			decay => 4,
+			decay => 8,
 			voices => [
-				new Voice( wave => 'file', file => 'C:\development\synth\WAV\cw_amen02_165.wav', freq_decay => 0.04 )
+				new Voice( wave => 'file', file => 'C:\development\synth\WAV\cw_amen19_172.wav', freq_decay => 0.04 )
 			],
 			#decay => 0.25
 		),
@@ -116,6 +116,8 @@ my $freq = 44100;
 my $selected_patch;
 
 my $octave = 2;
+
+my $sample_length = 1;
 
 for (;;) {
 	my @event = $con_in->Input();
@@ -144,24 +146,36 @@ for (;;) {
 		
 		$selected_patch = $synth->{Patches}->{ "snare" };
 		$synth->render_patch($selected_patch, [name2freq('f3')]);		
+		
+		$sample_length = scalar @{$selected_patch->{rendered_sample}->[0]};	
+		print "sample length = $sample_length\n";
 	}
 	
 	if( $vkcode == W_KEY ) {
 		
 		$selected_patch = $synth->{Patches}->{ "hihat" };
 		$synth->render_patch($selected_patch, [name2freq('g3')]);
+		
+		$sample_length = scalar @{$selected_patch->{rendered_sample}->[0]};	
+		print "sample length = $sample_length\n";
 	}
 	
 	if( $vkcode == E_KEY ) {
 		
 		$selected_patch = $synth->{Patches}->{ "bass" };
 		$synth->render_patch_as_middle_c($selected_patch);
+		
+		$sample_length = scalar @{$selected_patch->{rendered_sample}->[0]};	
+		print "sample length = $sample_length\n";
 	}
 	
 	if( $vkcode == R_KEY ) {
 
 		$selected_patch = $synth->{Patches}->{ "amen" };		
 		$synth->render_patch_as_middle_c($selected_patch);
+		
+		$sample_length = scalar @{$selected_patch->{rendered_sample}->[0]};	
+		print "sample length = $sample_length\n";
 	}
 
 	if( $vkcode == 49 ) {
@@ -183,20 +197,20 @@ for (;;) {
 
 	# sample chopper
 	
-	my $chunk = 18_750;
-	# we need to be able to specify the chunks of the sample here by getting he length of it
+	my $divider = 16;
+	my $chop_length = $sample_length/$divider;
 	
 	if( $vkcode == Y_KEY ) {
-		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), 0, $chunk);
+		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), 0, $chop_length);
 	}
 	if( $vkcode == U_KEY ) {
-		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), $chunk, $chunk);
+		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), $chop_length, $chop_length);
 	}
 	if( $vkcode == I_KEY ) {
-		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), $chunk * 2, $chunk);
+		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), $chop_length * 2, $chop_length);
 	}
 	if( $vkcode == O_KEY ) {
-		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), $chunk * 3, $chunk);
+		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), $chop_length * 3, $chop_length);
 	}
 	
 	
