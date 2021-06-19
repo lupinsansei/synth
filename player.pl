@@ -87,7 +87,8 @@ my $synth = new Synth(
 				 new Voice( freq_multiplier => 2, freq_decay => 0.0004,
 				 modulators => [
 						new Voice( freq_multiplier => 4, freq_decay => 0.0002, volume_multiplier => 0.055, volume_decay => 0.000003 ),	
-						new Voice( freq_multiplier => 8, freq_decay => 0.0002, volume_multiplier => 0.03, volume_decay => 0.0000001 ),
+						new Voice( freq_multiplier => 8.1, freq_decay => 0.0003, volume_multiplier => 0.03, volume_decay => 0.0000001 ),
+						new Voice( freq_multiplier => 16.1, freq_decay => 0.0003, volume_multiplier => 0.03, volume_decay => 0.0000001 ),
 						#new Voice( freq_multiplier => 4.1, volume_multiplier => 0.40, volume_decay => 0.00005 ),
 					 ]
 				 )
@@ -96,7 +97,7 @@ my $synth = new Synth(
 		"amen" => new Patch(
 			decay => 4,
 			voices => [
-				new Voice( wave => 'file', file => 'C:\Med\amen break.wav', freq_decay => 0.04 )
+				new Voice( wave => 'file', file => 'C:\development\synth\WAV\cw_amen02_165.wav', freq_decay => 0.04 )
 			],
 			#decay => 0.25
 		),
