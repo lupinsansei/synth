@@ -46,7 +46,7 @@ my $synth = new Synth(
 			length => 2,
 			chord => 1,
 			voices => [
-				 new Voice( freq_multiplier => 2, freq_decay => 0.0004,
+				 new Voice( freq_multiplier => 2, freq_decay => 0.0004, volume_decay => 0.0001,
 				 modulators => [
 						new Voice( freq_multiplier => 4, freq_decay => 0.0002, volume_multiplier => 0.055, volume_decay => 0.000003 ),
 						new Voice( freq_multiplier => 8, freq_decay => 0.0002, volume_multiplier => 0.03, volume_decay => 0.0000001 ),
@@ -291,38 +291,38 @@ sub AddVoicePanel {
 
 	# wave menu
 	$table->put($row_index,$col++,
-		$table->Optionmenu(-variable => \$voice->{wave}, -options => GetVoiceList(), -command => sub { OnVoiceChange($patch) } )->pack()
+		$table->Optionmenu(-variable => \$voice->{wave}, -options => GetVoiceList(), -command => sub { OnPatchChange($patch) } )->pack()
 	);
 
 	# Tuned
 	print $voice->{tuned};
 	$table->put($row_index, $col++,
-		$table->Checkbutton(-variable => \$voice->{tuned}, -command => sub{ OnVoiceChange($patch) } )
+		$table->Checkbutton(-variable => \$voice->{tuned}, -command => sub{ OnPatchChange($patch) } )
 	);
 
 	# f multiplier
 	$table->put($row_index, $col++,
-		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.1, -width => 9, -textvariable => \$voice->{freq_multiplier}, -command => sub{ OnVoiceChange($patch) } )
+		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.1, -width => 9, -textvariable => \$voice->{freq_multiplier}, -command => sub{ OnPatchChange($patch) } )
 	);
 
 	# v multiplier
 	$table->put($row_index, $col++,
-		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.1, -width => 9, -textvariable => \$voice->{volume_multiplier}, -command => sub{ OnVoiceChange($patch) } )
+		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.1, -width => 9, -textvariable => \$voice->{volume_multiplier}, -command => sub{ OnPatchChange($patch) } )
 	);
 
 	# f Decay
 	$table->put($row_index, $col++,
-		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.001, -width => 9, -textvariable => \$voice->{freq_decay}, -command => sub{ OnVoiceChange($patch) } )
+		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.001, -width => 9, -textvariable => \$voice->{freq_decay}, -command => sub{ OnPatchChange($patch) } )
 	);
 
 	# v Decay
 	$table->put($row_index, $col++,
-		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.00001, -width => 9, -textvariable => \$voice->{volume_decay}, -command => sub{ OnVoiceChange($patch) } )
+		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.00001, -width => 9, -textvariable => \$voice->{volume_decay}, -command => sub{ OnPatchChange($patch) } )
 	);
 
 	# delay
 	$table->put($row_index, $col++,
-		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.01, -width => 9, -textvariable => \$voice->{delay}, -command => sub{ OnVoiceChange($patch) } )
+		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.01, -width => 9, -textvariable => \$voice->{delay}, -command => sub{ OnPatchChange($patch) } )
 	);
 
 	# modulators
