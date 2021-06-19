@@ -67,6 +67,7 @@ use constant SHIFTED_MASK =>
 my $synth = new Synth(
 	Patches => {
 		"snare" => new Patch( 
+			name => "snare",
 			length => 1,
 			voices => [
 				new Voice( wave => 'sine', freq_decay => 0.004, volume_decay => 0.000005 ),
@@ -75,13 +76,15 @@ my $synth = new Synth(
 			#decay => 0.15
 		),
 		"hihat" => new Patch(
+			name => "hihat",
 			length => 1,
 			voices => [
 				new Voice( wave => 'noise', tuned => 0, volume_decay => 0.00025 )
 			],
 			#decay => 0.25
 		),
-		'bass' => new Patch(			
+		'bass' => new Patch(
+			name => "bass",
 			length => 2,
 			voices => [
 				 new Voice( freq_multiplier => 2, freq_decay => 0.0004,
@@ -95,6 +98,7 @@ my $synth = new Synth(
 			]
 		),
 		"amen" => new Patch(
+			name => "amen",
 			decay => 4,
 			voices => [
 				new Voice( wave => 'file', file => 'C:\development\synth\WAV\cw_amen02_165.wav', freq_decay => 0.04 )
@@ -108,7 +112,7 @@ my $con_in = Win32::Console->new(STD_INPUT_HANDLE);
 
 my $freq = 44100;
 
-my $last_played_patch;
+my $selected_patch;
 
 my $octave = 2;
 
@@ -136,23 +140,27 @@ for (;;) {
 	}
 	
 	if( $vkcode == Q_KEY ) {
-		$last_played_patch = "snare";
-		$synth->render_patch($last_played_patch, [name2freq('f3')]);
+		
+		$selected_patch = $synth->{Patches}->{ "snare" };
+		$synth->render_patch($selected_patch, [name2freq('f3')]);
 	}
 	
 	if( $vkcode == W_KEY ) {
-		$last_played_patch = "hihat";
-		$synth->render_patch($last_played_patch, [name2freq('g3')]);
+		
+		$selected_patch = $synth->{Patches}->{ "hihat" };
+		$synth->render_patch($selected_patch, [name2freq('g3')]);
 	}
 	
 	if( $vkcode == E_KEY ) {
-		$last_played_patch = "bass";
-		$synth->render_patch($last_played_patch, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
+		
+		$selected_patch = $synth->{Patches}->{ "bass" };
+		$synth->render_patch($selected_patch, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
 	}
 	
 	if( $vkcode == R_KEY ) {
-		$last_played_patch = "amen";
-		$synth->render_patch($last_played_patch, [name2freq('c3')]);
+
+		$selected_patch = $synth->{Patches}->{ "amen" };		
+		$synth->render_patch($selected_patch, [name2freq('c3')]);
 	}
 
 	if( $vkcode == 49 ) {
@@ -178,41 +186,41 @@ for (;;) {
 	# we need to be able to specify the chunks of the sample here by getting he length of it
 	
 	if( $vkcode == Y_KEY ) {
-		$synth->play_patch($last_played_patch, $vkcode, name2freq('c3'), 0, $chunk);
+		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), 0, $chunk);
 	}
 	if( $vkcode == U_KEY ) {
-		$synth->play_patch($last_played_patch, $vkcode, name2freq('c3'), $chunk, $chunk);
+		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), $chunk, $chunk);
 	}
 	if( $vkcode == I_KEY ) {
-		$synth->play_patch($last_played_patch, $vkcode, name2freq('c3'), $chunk * 2, $chunk);
+		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), $chunk * 2, $chunk);
 	}
 	if( $vkcode == O_KEY ) {
-		$synth->play_patch($last_played_patch, $vkcode, name2freq('c3'), $chunk * 3, $chunk);
+		$synth->play_patch($selected_patch, $vkcode, name2freq('c3'), $chunk * 3, $chunk);
 	}
 	
 	
 	# musical keyboard
-	next unless $last_played_patch;
+	next unless $selected_patch;
 
-	$synth->play_patch($last_played_patch, $vkcode, name2freq('c'.$octave)) if $vkcode == Z_KEY;	
-		$synth->play_patch($last_played_patch, $vkcode, name2freq('c#'.$octave)) if $vkcode == S_KEY;
-	$synth->play_patch($last_played_patch, $vkcode, name2freq('d'.$octave)) if $vkcode == X_KEY;
-		$synth->play_patch($last_played_patch, $vkcode, name2freq('d#'.$octave)) if $vkcode == D_KEY;
-	$synth->play_patch($last_played_patch, $vkcode, name2freq('e'.$octave)) if $vkcode == C_KEY;
+	$synth->play_patch($selected_patch, $vkcode, name2freq('c'.$octave)) if $vkcode == Z_KEY;	
+		$synth->play_patch($selected_patch, $vkcode, name2freq('c#'.$octave)) if $vkcode == S_KEY;
+	$synth->play_patch($selected_patch, $vkcode, name2freq('d'.$octave)) if $vkcode == X_KEY;
+		$synth->play_patch($selected_patch, $vkcode, name2freq('d#'.$octave)) if $vkcode == D_KEY;
+	$synth->play_patch($selected_patch, $vkcode, name2freq('e'.$octave)) if $vkcode == C_KEY;
 	
-	$synth->play_patch($last_played_patch, $vkcode, name2freq('f'.$octave)) if $vkcode == V_KEY;
-		$synth->play_patch($last_played_patch, $vkcode, name2freq('f#'.$octave)) if $vkcode == G_KEY;
-	$synth->play_patch($last_played_patch, $vkcode, name2freq('g'.$octave)) if $vkcode == B_KEY;	
-		$synth->play_patch($last_played_patch, $vkcode, name2freq('g#'.$octave)) if $vkcode == H_KEY;
-	$synth->play_patch($last_played_patch, $vkcode, name2freq('a'.$octave)) if $vkcode == N_KEY;
-		$synth->play_patch($last_played_patch, $vkcode, name2freq('a#'.$octave)) if $vkcode == J_KEY;
-	$synth->play_patch($last_played_patch, $vkcode, name2freq('b'.$octave)) if $vkcode == M_KEY;
+	$synth->play_patch($selected_patch, $vkcode, name2freq('f'.$octave)) if $vkcode == V_KEY;
+		$synth->play_patch($selected_patch, $vkcode, name2freq('f#'.$octave)) if $vkcode == G_KEY;
+	$synth->play_patch($selected_patch, $vkcode, name2freq('g'.$octave)) if $vkcode == B_KEY;	
+		$synth->play_patch($selected_patch, $vkcode, name2freq('g#'.$octave)) if $vkcode == H_KEY;
+	$synth->play_patch($selected_patch, $vkcode, name2freq('a'.$octave)) if $vkcode == N_KEY;
+		$synth->play_patch($selected_patch, $vkcode, name2freq('a#'.$octave)) if $vkcode == J_KEY;
+	$synth->play_patch($selected_patch, $vkcode, name2freq('b'.$octave)) if $vkcode == M_KEY;
 
-	$synth->play_patch($last_played_patch, $vkcode, name2freq('c'.($octave+1))) if $vkcode == COMMA_KEY;
-		$synth->play_patch($last_played_patch, $vkcode, name2freq('c#'.($octave+1))) if $vkcode == L_KEY;
-	$synth->play_patch($last_played_patch, $vkcode, name2freq('d'.($octave+1))) if $vkcode == PERIOD_KEY;
-		$synth->play_patch($last_played_patch, $vkcode, name2freq('d#'.($octave+1))) if $vkcode == SEMICOLON_KEY;
-	$synth->play_patch($last_played_patch, name2freq('e'.($octave+1))) if $vkcode == FORWARD_SLASH_KEY;
+	$synth->play_patch($selected_patch, $vkcode, name2freq('c'.($octave+1))) if $vkcode == COMMA_KEY;
+		$synth->play_patch($selected_patch, $vkcode, name2freq('c#'.($octave+1))) if $vkcode == L_KEY;
+	$synth->play_patch($selected_patch, $vkcode, name2freq('d'.($octave+1))) if $vkcode == PERIOD_KEY;
+		$synth->play_patch($selected_patch, $vkcode, name2freq('d#'.($octave+1))) if $vkcode == SEMICOLON_KEY;
+	$synth->play_patch($selected_patch, name2freq('e'.($octave+1))) if $vkcode == FORWARD_SLASH_KEY;
 	
 }
 

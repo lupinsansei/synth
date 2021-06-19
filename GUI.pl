@@ -252,9 +252,9 @@ sub changePatch {
 	$mw->update;	
 
 	if( $selected_patch->{chord} ) {
-		$synth->render_patch($selected_patch->{name}, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
+		$synth->render_patch($selected_patch, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
 	} else {		
-		$synth->render_patch($selected_patch->{name}, [name2freq('c3')]);
+		$synth->render_patch($selected_patch, [name2freq('c3')]);
 	}
 
 	$mw->Unbusy;
@@ -375,15 +375,15 @@ sub OnPatchChange {
 	print "chord = " . $patch->{chord};
 
 	if( $patch->{chord} ) {
-		$synth->render_patch($patch->{name}, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
+		$synth->render_patch($patch, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
 	} else {		
-		$synth->render_patch($patch->{name}, [name2freq('c3')]);
+		$synth->render_patch($patch, [name2freq('c3')]);
 	}
 
 	$mw->Unbusy;
 	$mw->update;
 
-	$synth->play_patch($patch->{name}, undef, name2freq('c' . $selected_octave));
+	$synth->play_patch($patch, undef, name2freq('c' . $selected_octave));
 	#$dialog->Show();
 }
 
@@ -468,7 +468,8 @@ sub build_key {
 sub play_selected_patch {
 
 	my($name) = @_;
-
-	my $selected_patch = $lbox->get( $lbox->curselection->[0] );
+	
+	my $selected_patch = $synth->{Patches}->{ $lbox->get( $lbox->curselection->[0] ) };
+	
 	$synth->play_patch($selected_patch, undef, name2freq($name));	# name is kind of like a closure
 }

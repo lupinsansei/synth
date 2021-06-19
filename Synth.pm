@@ -22,12 +22,12 @@ package Synth;
 
 	has 'Keys'				=> ( is => 'rw', isa => 'HashRef', default => sub { {} } );
 
-	# renders the patch by name - really we should pass in a patch object instead (yes!)
+	# renders the patch
 	sub render_patch {
 
-		my( $self, $patch_name, $frequencies ) = @_;
-
-		print "rendering $patch_name...\n";
+		my( $self, $patch, $frequencies ) = @_;	
+		
+		print "rendering $patch->{name}...\n";
 
 		my $start = time();
 
@@ -36,7 +36,7 @@ package Synth;
 
 			print $frequencies->[0];
 
-			$sample = $self->Patches->{$patch_name}->render( $frequencies->[0], $self->samplerate, $self->bits );
+			$sample = $patch->render( $frequencies->[0], $self->samplerate, $self->bits );
 		} else {
 
 			# could run this across lots of CPUs
@@ -46,15 +46,15 @@ package Synth;
 
 				print $frequency, "\t";
 
-				$sample = $self->Patches->{$patch_name}->render( $frequency, $self->samplerate, $self->bits );
+				$sample = $patch->render( $frequency, $self->samplerate, $self->bits );
 				push( @samples, $sample );
 			}
 
 			$sample = Patch::mix_samples( \@samples );
 		}
 
-		$self->Patches->{$patch_name}->rendered_sample( $sample );
-		$self->Patches->{$patch_name}->rendered_wave( sample2wav( $sample ) );
+		$patch->rendered_sample( $sample );
+		$patch->rendered_wave( sample2wav( $sample ) );
 
 		my $end = time();
 		printf("time: %.2f\n", $end - $start);
@@ -62,7 +62,7 @@ package Synth;
 
 	sub play_patch {
 
-		my( $self, $patch_name, $vkcode, $frequency, $offset, $length ) = @_;
+		my( $self, $patch, $vkcode, $frequency, $offset, $length ) = @_;
 
 		if( defined $vkcode && defined $self->Keys->{$vkcode} ) {
 
@@ -82,17 +82,17 @@ package Synth;
 			#$self->Channels->[$self->ChannelIndex]->Pause();
 
 		}
-		print "Channel: " . $self->ChannelIndex . " $patch_name ";
+		print "Channel: " . $self->ChannelIndex . " $patch->{name} ";
 
-		my $samplerate = ($self->samplerate / $self->Patches->{$patch_name}->rendered_frequency) * $frequency;
+		my $samplerate = ($self->samplerate / $patch->rendered_frequency) * $frequency;
 
 		$self->Channels->[$self->ChannelIndex] = new Win32::Sound::WaveOut($samplerate, $self->bits, $self->channels);	# http://search.cpan.org/~acalpini/Win32-Sound/Sound.pm
 
 		if( defined $offset || defined $length  ) {
 			# we should cache this if offset and length stay the same
-			$self->Channels->[$self->ChannelIndex]->Load( sample2wav( $self->Patches->{$patch_name}->rendered_sample, $offset, $length ) );
+			$self->Channels->[$self->ChannelIndex]->Load( sample2wav( $patch->rendered_sample, $offset, $length ) );
 		} else {
-			$self->Channels->[$self->ChannelIndex]->Load( $self->Patches->{$patch_name}->{rendered_wave} );
+			$self->Channels->[$self->ChannelIndex]->Load( $patch->{rendered_wave} );
 		}
 
 		$self->Channels->[$self->ChannelIndex]->Write();
@@ -100,7 +100,7 @@ package Synth;
 				$self->Keys->{$vkcode} = $self->ChannelIndex;
 		}
 
-		print "$patch_name ($frequency)\n";
+		print "$patch->{name} ($frequency)\n";
 
 		# reset sound to begining so it is ready to play again, we can also just pause it $WAV->Pause() if $WAV or Unload()
 		#$self->Channels->[$channel_number]->Pause();
