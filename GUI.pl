@@ -402,7 +402,7 @@ sub AddTableHeader {
 
 sub CenterWindow
 {
-  # https://www.perlmonks.org/?node_id=356942
+	# https://www.perlmonks.org/?node_id=356942
 
     my($window, $width, $height) = @_;
     $window->idletasks;
@@ -447,15 +447,15 @@ sub build_keyboard {
 
 sub build_key {
 
-	my( $table, $name, $height, $background ) = @_;
+	my( $table, $note, $height, $background ) = @_;
 
 	my $bt = $table->Button(
-		-text			=> $name,
+		-text		=> $note,
 		-width		=> 3,
 		-height		=> $height,
 		-background => $background,
 		-command => sub {
-			play_selected_patch($name);			# name is kind of like a closure?
+			play_selected_patch($note);			# note is kind of like a closure?
 		}
 	);
 
@@ -469,7 +469,7 @@ sub build_key {
 
 sub play_selected_patch {
 
-	my($name) = @_;
+	my($note) = @_;
 	
-	$synth->play_patch(getSelectedPatch(), undef, name2freq($name));	# name is kind of like a closure
+	$synth->play_patch(getSelectedPatch(), undef, name2freq($note));	# note is kind of like a closure
 }
