@@ -253,11 +253,7 @@ sub changePatch {
 	$mw->Busy;
 	$mw->update;	
 
-	if( $selected_patch->{chord} ) {
-		$synth->render_patch($selected_patch, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
-	} else {		
-		$synth->render_patch($selected_patch, [name2freq('c3')]);
-	}
+	$synth->render_patch_as_middle_c($selected_patch);
 
 	$mw->Unbusy;
 	$mw->update;
@@ -373,14 +369,8 @@ sub OnPatchChange {
 
 	$mw->Busy;
 	$mw->update;
-
-	print "chord = " . $patch->{chord};
-
-	if( $patch->{chord} ) {
-		$synth->render_patch($patch, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
-	} else {		
-		$synth->render_patch($patch, [name2freq('c3')]);
-	}
+	
+	$synth->render_patch_as_middle_c($patch);
 
 	$mw->Unbusy;
 	$mw->update;

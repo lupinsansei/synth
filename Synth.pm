@@ -22,7 +22,20 @@ package Synth;
 
 	has 'Keys'				=> ( is => 'rw', isa => 'HashRef', default => sub { {} } );
 
-	# renders the patch
+	sub render_patch_as_middle_c {
+		my( $self, $patch ) = @_;
+		
+		my $frequencies;
+		
+		if( $patch->{chord} ) {
+			$frequencies = [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')];
+		} else {					
+			$frequencies = [name2freq('c3')];
+		}
+		
+		$self->render_patch($patch, $frequencies);		
+	}
+
 	sub render_patch {
 
 		my( $self, $patch, $frequencies ) = @_;	

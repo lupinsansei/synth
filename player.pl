@@ -86,6 +86,7 @@ my $synth = new Synth(
 		'bass' => new Patch(
 			name => "bass",
 			length => 2,
+			chord => 1,
 			voices => [
 				 new Voice( freq_multiplier => 2, freq_decay => 0.0004,
 				 modulators => [
@@ -142,7 +143,7 @@ for (;;) {
 	if( $vkcode == Q_KEY ) {
 		
 		$selected_patch = $synth->{Patches}->{ "snare" };
-		$synth->render_patch($selected_patch, [name2freq('f3')]);
+		$synth->render_patch($selected_patch, [name2freq('f3')]);		
 	}
 	
 	if( $vkcode == W_KEY ) {
@@ -154,13 +155,13 @@ for (;;) {
 	if( $vkcode == E_KEY ) {
 		
 		$selected_patch = $synth->{Patches}->{ "bass" };
-		$synth->render_patch($selected_patch, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
+		$synth->render_patch_as_middle_c($selected_patch);
 	}
 	
 	if( $vkcode == R_KEY ) {
 
 		$selected_patch = $synth->{Patches}->{ "amen" };		
-		$synth->render_patch($selected_patch, [name2freq('c3')]);
+		$synth->render_patch_as_middle_c($selected_patch);
 	}
 
 	if( $vkcode == 49 ) {
