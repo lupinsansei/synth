@@ -4,6 +4,7 @@ package Synth;
 	
 	use Time::HiRes qw( time );
 	use Data::Dumper;
+	use MIDI::Pitch qw(name2freq pitch2name name2pitch);
 
 	has 'samplerate'	=> ( is => 'rw', isa => 'Int', default => 44100 );
 	has 'bits'			=> ( is => 'rw', isa => 'Int', default => 16 );	# about 16 bit http://www.perlmonks.org/bare/?node_id=476642
@@ -21,7 +22,7 @@ package Synth;
 
 	has 'Keys'				=> ( is => 'rw', isa => 'HashRef', default => sub { {} } );
 
-	# renders the patch by name - really we should pass in a patch object instead
+	# renders the patch by name - really we should pass in a patch object instead (yes!)
 	sub render_patch {
 
 		my( $self, $patch_name, $frequencies ) = @_;

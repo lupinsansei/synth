@@ -2,28 +2,28 @@ package Patch;
 
 	use Moose; # automatically turns on strict and warnings
 	#use CHI::Memoize qw(:all);
-	#use Storable qw(dclone);
+	#use Storable qw(dclone);	
 	use Voice;
-	use Data::Dumper;
+	use Data::Dumper;	
 
-	has 'name'		=> ( is => 'rw', isa => 'Str', required => 0 );
+	has 'name'					=> ( is => 'rw', isa => 'Str', required => 0 );
 
-	has 'length'		=> ( is => 'rw', isa => 'Num', default => 0 );		# seconds - if any sample is longer than another one it seems to not be cleared from the audio buffer, maybe solved with a blank sample the size of the largest one?
+	has 'length'				=> ( is => 'rw', isa => 'Num', default => 0 );		# seconds - if any sample is longer than another one it seems to not be cleared from the audio buffer, maybe solved with a blank sample the size of the largest one?
 																			# default to the length of the wav file if that's the voice type unless specified
 
-	#has 'volume'		=> ( is => 'rw', isa => 'Num', default => 1 );		# 0..1
+	#has 'volume'				=> ( is => 'rw', isa => 'Num', default => 1 );		# 0..1
 
-	has 'voices'		=> ( is => 'rw', isa => 'ArrayRef[Voice]', required => 1 );
+	has 'voices'				=> ( is => 'rw', isa => 'ArrayRef[Voice]', required => 1 );
 
-	has 'attack'		=> ( is => 'rw', isa => 'Num', default => 0 );	# these are slower than volume_decay on voice
-	has 'decay'			=> ( is => 'rw', isa => 'Num', default => 1 );		# these are slower than volume_decay on voice
+	has 'attack'				=> ( is => 'rw', isa => 'Num', default => 0 );	# these are slower than volume_decay on voice
+	has 'decay'					=> ( is => 'rw', isa => 'Num', default => 1 );		# these are slower than volume_decay on voice
 
-	has 'rendered_frequency'		=> ( is => 'rw', isa => 'Num', required => 0 );	# the frequency it was rendered at, later used to change the pitch
+	has 'rendered_frequency'	=> ( is => 'rw', isa => 'Num', required => 0 );	# the frequency it was rendered at, later used to change the pitch
 
-	has 'rendered_sample'	=> ( is => 'rw' );	# what data type? Some kind of reference to raw binary?
-	has 'rendered_wave'	=> ( is => 'rw', isa => 'Str' );
+	has 'rendered_sample'		=> ( is => 'rw' );	# what data type? Some kind of reference to raw binary?
+	has 'rendered_wave'			=> ( is => 'rw', isa => 'Str' );
 
-	has 'chord' => ( is => 'rw', isa => 'Bool', default => 0 );
+	has 'chord' 				=> ( is => 'rw', isa => 'Bool', default => 0 );
 
 sub render {
 	my ($self, $frequency, $samplerate, $bits) = @_;
