@@ -44,6 +44,7 @@ my $synth = new Synth(
 		'bass' => new Patch(
 			name => "bass",
 			length => 2,
+			chord => 1,
 			voices => [
 				 new Voice( freq_multiplier => 2, freq_decay => 0.0004,
 				 modulators => [
@@ -58,7 +59,7 @@ my $synth = new Synth(
 			name => "amen",
 			decay => 4,
 			voices => [
-				new Voice( wave => 'file', file => 'C:\Med\amen break.wav', freq_decay => 0.04 )
+				new Voice( wave => 'file', file => 'C:\development\synth\WAV\cw_amen02_165.wav', freq_decay => 0.04 )
 			],
 			#decay => 0.25
 		),
@@ -217,10 +218,23 @@ sub changePatch {
 	# clear the voice table
 	$table->clear();
 
-	# patch widgets would go here, perhaps in a nice table too that we clear each time and rebuild
+	my $row_index = 0;
+
+	# patch widgets
+
+	# chord
+	$table->put($row_index, 0,
+		"Chord"
+	);
+
+	$table->put($row_index, 1,
+		$table->Checkbutton(-variable => \$selected_patch->{chord}, -command => sub{ OnPatchChange($selected_patch) } )
+	);
+
+	$row_index++;
 
 	# foreach voice in patch
-	my $row_index = 0;
+	
 	for(my $i=0; $i<@{$selected_patch->voices}; $i++) {
 
 		my $voice = $selected_patch->voices->[$i];
@@ -235,9 +249,13 @@ sub changePatch {
 	# render the sound
 	#print "changePatch\n";
 	$mw->Busy;
-	$mw->update;
+	$mw->update;	
 
-	$synth->render_patch($selected_patch->{name}, [name2freq('c3')]);
+	if( $selected_patch->{chord} ) {
+		$synth->render_patch($selected_patch->{name}, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
+	} else {		
+		$synth->render_patch($selected_patch->{name}, [name2freq('c3')]);
+	}
 
 	$mw->Unbusy;
 	$mw->update;
@@ -247,64 +265,64 @@ sub AddVoicePanel {
 	my $table = shift;
 	my $row_index = shift;
 	my $patch = shift;
-  my $voice = shift;
-  my $indent = shift;
+	my $voice = shift;
+	my $indent = shift;
 
-  $indent = 0 unless defined($indent);
+	$indent = 0 unless defined($indent);
 
-  my $col = 0;
+	my $col = 0;
 
-  $col += $indent;
+	$col += $indent;
 
-  # create new voice data structure, with their defaults
-  # $voices->[$row_index-1] = {
-  #   wave => 'sine',
-  #   f_decay => 0,
-  #   v_decay => 0,
-  #   tuned => 0,
-  #   f_multiplier => 0,
-  #   v_multiplier => 0,
-  #   modulators => []
-  # };
+	# create new voice data structure, with their defaults
+	# $voices->[$row_index-1] = {
+	#   wave => 'sine',
+	#   f_decay => 0,
+	#   v_decay => 0,
+	#   tuned => 0,
+	#   f_multiplier => 0,
+	#   v_multiplier => 0,
+	#   modulators => []
+	# };
 
-  #print "AddVoicePanel($row_index)\n";
+	#print "AddVoicePanel($row_index)\n";
 
-  #$table->put($row_index,$col++,"$row_index");  # simple Label
+	#$table->put($row_index,$col++,"$row_index");  # simple Label
 
-  # wave menu
-  $table->put($row_index,$col++,
-    $table->Optionmenu(-variable => \$voice->{wave}, -options => GetVoiceList(), -command => sub { OnVoiceChange($patch, $voice) } )->pack()
-  );
+	# wave menu
+	$table->put($row_index,$col++,
+		$table->Optionmenu(-variable => \$voice->{wave}, -options => GetVoiceList(), -command => sub { OnVoiceChange($patch) } )->pack()
+	);
 
-  # Tuned
+	# Tuned
 	print $voice->{tuned};
-  $table->put($row_index, $col++,
-    $table->Checkbutton(-variable => \$voice->{tuned}, -command => sub{ OnVoiceChange($patch, $voice) } )
-  );
+	$table->put($row_index, $col++,
+		$table->Checkbutton(-variable => \$voice->{tuned}, -command => sub{ OnVoiceChange($patch) } )
+	);
 
 	# f multiplier
-  $table->put($row_index, $col++,
-    $table->Spinbox(-from => -1000, -to => 1000, -increment => 0.1, -width => 9, -textvariable => \$voice->{freq_multiplier}, -command => sub{ OnVoiceChange($patch, $voice) } )
-  );
+	$table->put($row_index, $col++,
+		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.1, -width => 9, -textvariable => \$voice->{freq_multiplier}, -command => sub{ OnVoiceChange($patch) } )
+	);
 
-  # v multiplier
-  $table->put($row_index, $col++,
-    $table->Spinbox(-from => -1000, -to => 1000, -increment => 0.1, -width => 9, -textvariable => \$voice->{volume_multiplier}, -command => sub{ OnVoiceChange($patch, $voice) } )
-  );
+	# v multiplier
+	$table->put($row_index, $col++,
+		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.1, -width => 9, -textvariable => \$voice->{volume_multiplier}, -command => sub{ OnVoiceChange($patch) } )
+	);
 
-  # f Decay
-  $table->put($row_index, $col++,
-    $table->Spinbox(-from => -1000, -to => 1000, -increment => 0.001, -width => 9, -textvariable => \$voice->{freq_decay}, -command => sub{ OnVoiceChange($patch, $voice) } )
-  );
+	# f Decay
+	$table->put($row_index, $col++,
+		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.001, -width => 9, -textvariable => \$voice->{freq_decay}, -command => sub{ OnVoiceChange($patch) } )
+	);
 
-  # v Decay
-  $table->put($row_index, $col++,
-    $table->Spinbox(-from => -1000, -to => 1000, -increment => 0.00001, -width => 9, -textvariable => \$voice->{volume_decay}, -command => sub{ OnVoiceChange($patch, $voice) } )
-  );
+	# v Decay
+	$table->put($row_index, $col++,
+		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.00001, -width => 9, -textvariable => \$voice->{volume_decay}, -command => sub{ OnVoiceChange($patch) } )
+	);
 
 	# delay
 	$table->put($row_index, $col++,
-		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.01, -width => 9, -textvariable => \$voice->{delay}, -command => sub{ OnVoiceChange($patch, $voice) } )
+		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.01, -width => 9, -textvariable => \$voice->{delay}, -command => sub{ OnVoiceChange($patch) } )
 	);
 
 	# modulators
@@ -340,27 +358,33 @@ sub GetVoiceList {
   return [qw(sine noise file)];
 }
 
-sub OnVoiceChange {
+sub OnPatchChange {
 
-	# this is called when a voice parameter has changed and we need to re-render the voice
+	# this is called when a voice parameter has changed and we need to re-render the patch
 
-  my($patch, $voice) = @_;
+	my($patch) = @_;
 
-  #print Dumper( $synth );	# this works and dumps out the whole set of patches
-  print Dumper( $patch->{name} );
+	#print Dumper( $synth );	# this works and dumps out the whole set of patches
+	print Dumper( $patch->{name} );
 
-	#print "OnVoiceChange\n";
+	#print "OnPatchChange\n";
 
 	$mw->Busy;
 	$mw->update;
 
-	$synth->render_patch($patch->{name}, [name2freq('c3')]);
+	print "chord = " . $patch->{chord};
+
+	if( $patch->{chord} ) {
+		$synth->render_patch($patch->{name}, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
+	} else {		
+		$synth->render_patch($patch->{name}, [name2freq('c3')]);
+	}
 
 	$mw->Unbusy;
 	$mw->update;
 
 	$synth->play_patch($patch->{name}, undef, name2freq('c' . $selected_octave));
-  #$dialog->Show();
+	#$dialog->Show();
 }
 
 sub AddTableHeader {

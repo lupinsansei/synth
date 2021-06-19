@@ -23,6 +23,8 @@ package Patch;
 	has 'rendered_sample'	=> ( is => 'rw' );	# what data type? Some kind of reference to raw binary?
 	has 'rendered_wave'	=> ( is => 'rw', isa => 'Str' );
 
+	has 'chord' => ( is => 'rw', isa => 'Bool', default => 0 );
+
 sub render {
 	my ($self, $frequency, $samplerate, $bits) = @_;
 
