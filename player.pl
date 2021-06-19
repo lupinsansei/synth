@@ -146,7 +146,7 @@ for (;;) {
 	
 	if( $vkcode == E_KEY ) {
 		$last_played_patch = "bass";
-		$synth->render_patch($last_played_patch, [name2freq('g3'), name2freq('e3'), name2freq('c4')]);
+		$synth->render_patch($last_played_patch, [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]);
 	}
 	
 	if( $vkcode == R_KEY ) {
