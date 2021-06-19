@@ -207,13 +207,15 @@ $file->command(
 CenterWindow($mw, 800, 400);
 MainLoop;
 
+sub getSelectedPatch {
+	return $synth->{Patches}->{ $lbox->get( $lbox->curselection->[0] ) };
+}
+
 sub changePatch {
 
 	# called when we change the patch in the listbox on the side
 
-	my $selected_patch = $synth->{Patches}->{ $lbox->get( $lbox->curselection->[0] ) };
-
-	#print "Patch Change: " . Dumper( $selected_patch ) . "\n";
+	my $selected_patch = getSelectedPatch();
 
 	# clear the voice table
 	$table->clear();
@@ -469,7 +471,5 @@ sub play_selected_patch {
 
 	my($name) = @_;
 	
-	my $selected_patch = $synth->{Patches}->{ $lbox->get( $lbox->curselection->[0] ) };
-	
-	$synth->play_patch($selected_patch, undef, name2freq($name));	# name is kind of like a closure
+	$synth->play_patch(getSelectedPatch(), undef, name2freq($name));	# name is kind of like a closure
 }
