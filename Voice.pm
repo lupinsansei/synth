@@ -114,7 +114,7 @@ sub make_sine {
 
 	for( my $i=0; $i <$samples; $i++) {
 
-		if( $left_volume > 0 || $right_volume > 0 ) {
+		if( $volume_decay && ( $left_volume > 0 || $right_volume > 0 ) ) {
 
 			# Calculate the pitch, but only bother if volume greater than zero else you can't hear it
 			my $v = sin($carrier_counter *6.28) * $scale;	# I tried to speed up sin with things like memoize and hash tables and lookups but it's not any faster
@@ -122,10 +122,11 @@ sub make_sine {
 			$data_l[$i] = $v * $left_volume;
 			$data_r[$i] = $v * $right_volume;
 
-		} else {
-			$data_l[$i] = 0;
-			$data_r[$i] = 0;
-		}
+		} #else {
+			# sometimes when we take this away we get clicks at the end of the sample :(
+			#$data_l[$i] = 0;
+			#$data_r[$i] = 0;
+		#}
 
 		# modulate the carrier frequency with the current level of modulator_v
 		if( $modulator_wave_ref ) {
@@ -135,12 +136,14 @@ sub make_sine {
 		}
 
 		# volume decay
-		if( $volume_decay && $left_volume > 0) {
-			$left_volume -= $volume_decay;
-		}
+		if( $volume_decay ) {
+			if( $left_volume > 0) {
+				$left_volume -= $volume_decay;
+			}
 
-		if( $volume_decay && $right_volume > 0 ) {
-			$right_volume -= $volume_decay;
+			if( $right_volume > 0 ) {
+				$right_volume -= $volume_decay;
+			}
 		}
 
 		# frequency decay

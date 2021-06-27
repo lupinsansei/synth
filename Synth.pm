@@ -150,7 +150,9 @@ package Synth;
 
 		my( $sample, $offset, $length ) = @_;
 
-		$offset = 0 unless $offset;		
+		$offset = 0 unless $offset;
+
+		# "pack" it twice for left and right
 
 		if( $length ) {
 
@@ -163,14 +165,14 @@ package Synth;
 			#print " length = $length ";
 		}
 
+		# I tried packing a whole array here once but got clicks
 		my @wav_data = ();
 
 		for( my $i = $offset; $i<$length; $i++ ) {
-			# "pack" it twice for left and right
-			push( @wav_data, ($sample->[0]->[$i], $sample->[1]->[$i]) );	# we used to wrap $sample->[x]->[$i] in int but it didn't seem to matter
+			push( @wav_data, pack("vv", $sample->[0]->[$i], $sample->[1]->[$i] ) );
 		}
 
-		return pack("v*", @wav_data);	# this is a slightly faster way to pack a whole array https://stackoverflow.com/a/25891683/74585
+		return join('', @wav_data);
 	}
 
 return 1;
