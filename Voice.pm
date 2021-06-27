@@ -103,9 +103,6 @@ sub make_sine {
 
 	my $samples = $samplerate * $length;
 
-	my @data_l = ();
-	my @data_r = ();
-
 	my $scale = (2**$bits)/2;
 
 	my $carrier_counter = 0;
@@ -114,6 +111,10 @@ sub make_sine {
 
 	my $volume_decay_enabled = $volume_decay > 0;
 	my $freq_decay_enabled = $freq_decay > 0;
+
+	# fill the arrays with zeros to start
+	my @data_l = (0) x $samples;
+	my @data_r = (0) x $samples;	
 
 	for( my $i=0; $i <$samples; $i++) {
 
@@ -125,11 +126,7 @@ sub make_sine {
 			$data_l[$i] = $v * $left_volume;
 			$data_r[$i] = $v * $right_volume;
 
-		} #else {
-			# sometimes when we take this away we get clicks at the end of the sample :(
-			#$data_l[$i] = 0;
-			#$data_r[$i] = 0;
-		#}
+		}
 
 		# modulate the carrier frequency with the current level of modulator_v
 		if( $modulator_wave_ref ) {

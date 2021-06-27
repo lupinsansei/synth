@@ -64,7 +64,7 @@ sub mix_samples {
 
 		my $sample = $samples->[$j];
 
-		my $sample_length = scalar @{$sample->[0]};	# does this assume that the first sample is the one they are all mixed into?
+		my $sample_length = scalar @{$sample->[0]};	# this works well as the sample_length is this current sample's left channel and so it doesn't matter if the samples are different lengths
 
 		for( my $i=0; $i<$sample_length; $i++ ) {
 
