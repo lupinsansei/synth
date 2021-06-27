@@ -28,7 +28,8 @@ package Synth;
 		my $frequencies;
 		
 		if( $patch->{chord} ) {
-			$frequencies = [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')];
+			#$frequencies = [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]; # FACE FMAJ7
+			$frequencies = [name2freq('c3'), name2freq('e3'), name2freq('f3'), name2freq('a3')]; # FACE FMAJ7 but the way I discovered it on the piano
 		} else {					
 			$frequencies = [name2freq('c3')];
 		}
@@ -149,29 +150,27 @@ package Synth;
 
 		my( $sample, $offset, $length ) = @_;
 
-		$offset = 0 unless $offset;
-
-		# "pack" it twice for left and right
-
-		my $wav_data = "";
+		$offset = 0 unless $offset;		
 
 		if( $length ) {
 
-			print " offset = $offset length = $length ";
+			#print " offset = $offset length = $length ";
 
 			$length = $length + $offset;
 		} else {
 			$length = scalar @{$sample->[0]};
 
-			print " length = $length ";
+			#print " length = $length ";
 		}
 
+		my @wav_data = ();
 
 		for( my $i = $offset; $i<$length; $i++ ) {
-			$wav_data .= pack("vv", int($sample->[0]->[$i]), int($sample->[1]->[$i]) );
+			# "pack" it twice for left and right
+			push( @wav_data, ($sample->[0]->[$i], $sample->[1]->[$i]) );	# we used to wrap $sample->[x]->[$i] in int but it didn't seem to matter
 		}
 
-		return $wav_data;
+		return pack("v*", @wav_data);	# this is a slightly faster way to pack a whole array https://stackoverflow.com/a/25891683/74585
 	}
 
 return 1;

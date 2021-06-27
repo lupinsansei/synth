@@ -1,11 +1,12 @@
 package Voice;
 
 use Moose; # automatically turns on strict and warnings
-#use CHI::Memoize qw(:all);
-#use Storable qw(dclone);
+use CHI::Memoize qw(:all);
+use Storable qw(dclone);
 use feature qw(switch);
 use Data::Dumper;
 use Audio::Wav;
+#use Memoize;
 
 use experimental qw( switch );
 
@@ -94,7 +95,8 @@ sub render {
 	}
 }
 
-#memoize( 'make_sine', driver => 'File', root_dir => 'c:\Cache', expires_in => '1h' );
+#memoize( 'make_sine', driver => 'File', root_dir => 'c:\Cache', expires_in => '1h' );	this isn't any faster than normal, it's slightly slower
+#memoize( 'make_sine', driver => 'RawMemory' );	# takes too long too!
 
 sub make_sine {
 	my( $samplerate, $bits, $length, $frequency, $left_volume, $right_volume, $freq_decay, $modulator_wave_ref, $volume_decay ) = @_;
@@ -115,7 +117,7 @@ sub make_sine {
 		if( $left_volume > 0 || $right_volume > 0 ) {
 
 			# Calculate the pitch, but only bother if volume greater than zero else you can't hear it
-			my $v = sin($carrier_counter*6.28) * $scale;
+			my $v = sin($carrier_counter *6.28) * $scale;	# I tried to speed up sin with things like memoize and hash tables and lookups but it's not any faster
 
 			$data_l[$i] = $v * $left_volume;
 			$data_r[$i] = $v * $right_volume;
@@ -144,7 +146,6 @@ sub make_sine {
 		# frequency decay
 		if( $freq_decay && $frequency > 0 ) {
 			$frequency -= $freq_decay;
-
 		}
 	}
 
