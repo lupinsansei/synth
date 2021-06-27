@@ -48,7 +48,7 @@ package Synth;
 		my $sample;
 		if( scalar @{$frequencies} == 1 ) {
 
-			print $frequencies->[0];
+			#print $frequencies->[0];
 
 			$sample = $patch->render( $frequencies->[0], $self->samplerate, $self->bits );
 		} else {
@@ -58,7 +58,7 @@ package Synth;
 
 			foreach my $frequency (@{$frequencies}) {
 
-				print $frequency, "\t";
+				#print $frequency, "\t";
 
 				$sample = $patch->render( $frequency, $self->samplerate, $self->bits );
 				push( @samples, $sample );
