@@ -109,12 +109,15 @@ sub make_sine {
 	my $scale = (2**$bits)/2;
 
 	my $carrier_counter = 0;
-	my $modulator_increment = 0;
-	my $modulator_counter = 0;
+	
+	my $frequency_divided_by_samplerate = $frequency/$samplerate;
+
+	my $volume_decay_enabled = $volume_decay > 0;
+	my $freq_decay_enabled = $freq_decay > 0;
 
 	for( my $i=0; $i <$samples; $i++) {
 
-		if( $volume_decay && ( $left_volume > 0 || $right_volume > 0 ) ) {
+		if( $left_volume > 0 || $right_volume > 0 ) {
 
 			# Calculate the pitch, but only bother if volume greater than zero else you can't hear it
 			my $v = sin($carrier_counter *6.28) * $scale;	# I tried to speed up sin with things like memoize and hash tables and lookups but it's not any faster
@@ -132,12 +135,12 @@ sub make_sine {
 		if( $modulator_wave_ref ) {
 			$carrier_counter += ($frequency + $modulator_wave_ref->[0]->[$i] )/$samplerate;		# hack: we are only using the left channel here
 		} else {
-			$carrier_counter += $frequency/$samplerate;
+			$carrier_counter += $frequency_divided_by_samplerate;
 		}
 
 		# volume decay
-		if( $volume_decay ) {
-			if( $left_volume > 0) {
+		if( $volume_decay_enabled ) {
+			if( $left_volume > 0 ) {
 				$left_volume -= $volume_decay;
 			}
 
@@ -147,7 +150,7 @@ sub make_sine {
 		}
 
 		# frequency decay
-		if( $freq_decay && $frequency > 0 ) {
+		if( $freq_decay_enabled && $frequency > 0 ) {
 			$frequency -= $freq_decay;
 		}
 	}
