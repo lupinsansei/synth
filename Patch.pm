@@ -51,24 +51,31 @@ sub render {
 
 sub mix_samples {
 
+	# takes 1.37s
+
 	my $samples = shift;
 
 	my @data_l;
 	my @data_r;
 
 	my $sample_count = scalar @$samples;
-	my $scale = 1/$sample_count;
 
 	for( my $j=0; $j<$sample_count; $j++ ) {
 
 		my $sample = $samples->[$j];
 
-		for( my $i=0; $i<scalar @{$sample->[0]}; $i++ ) {
+		my $sample_length = scalar @{$sample->[0]};	# does this assume that the first sample is the one they are all mixed into?
 
-			$data_l[$i] += $sample->[0]->[$i] * $scale;
-			$data_r[$i] += $sample->[1]->[$i] * $scale;
+		for( my $i=0; $i<$sample_length; $i++ ) {
+
+			$data_l[$i] += $sample->[0]->[$i];
+			$data_r[$i] += $sample->[1]->[$i];
 		}
 	}
+
+	# scale down the samples at the end so they aren't too loud
+	foreach(@data_l){ $_ /= $sample_count }
+	foreach(@data_r){ $_ /= $sample_count }
 
 	return [ \@data_l, \@data_r ];
 }
