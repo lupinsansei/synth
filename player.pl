@@ -79,22 +79,21 @@ my $synth = new Synth(
 			name => "hihat",
 			length => 1,
 			voices => [
-				new Voice( wave => 'noise', tuned => 0, volume_decay => 0.00025 )
+				new Voice( wave => 'noise', tuned => 0, volume_dxxxecay => 0.00025 )
 			],
 			#decay => 0.25
 		),
 		'bass' => new Patch(
 			name => "bass",
-			length => 2,
+			length => 1,
 			chord => 1,
 			voices => [
-				 new Voice( freq_multiplier => 2, freq_decay => 0.0004,
+				 new Voice( freq_multiplier => 2, freq_decay => 0.0001,
 				 modulators => [
-						new Voice( freq_multiplier => 4, freq_decay => 0.0002, volume_multiplier => 0.055, volume_decay => 0.000003 ),	
-						new Voice( freq_multiplier => 8.1, freq_decay => 0.0003, volume_multiplier => 0.03, volume_decay => 0.0000001 ),
-						new Voice( freq_multiplier => 16.1, freq_decay => 0.0003, volume_multiplier => 0.03, volume_decay => 0.0000001 ),
-						#new Voice( freq_multiplier => 4.1, volume_multiplier => 0.40, volume_decay => 0.00005 ),
-					 ]
+						new Voice( freq_multiplier => 8, freq_decay => 0.0003, volume_multiplier => 0.06, volume_decay => 0.00001 ),
+						new Voice( freq_multiplier => 16, freq_decay => 0.0003, volume_multiplier => 0.06, volume_decay => 0.00001 ),
+					#new Voice( freq_multiplier => 2, volume_multiplier => 0.40, volume_decay => 0.00005 ),
+				 ]
 				 )
 			]
 		),
@@ -123,7 +122,7 @@ for (;;) {
 	my @event = $con_in->Input();
 
 	my $event_type = shift(@event);
-	next if !defined($event_type) || $event_type != 1;  # 1: Keyboard
+	next if !defined($event_type) || $event_type != 1;  # 1: Keyboard - wait here until a key is pressed
 
 	my ($key_down, $repeat_count, $vkcode, $vscode, $char, $ctrl_key_state) = @event;
 
@@ -160,13 +159,15 @@ for (;;) {
 		print "sample length = $sample_length\n";
 	}
 	
-	if( $vkcode == E_KEY ) {
+	if( $vkcode == E_KEY || !$selected_patch ) {	# default to this patch and octave
 		
 		$selected_patch = $synth->{Patches}->{ "bass" };
 		$synth->render_patch_as_middle_c($selected_patch);
 		
 		$sample_length = scalar @{$selected_patch->{rendered_sample}->[0]};	
 		print "sample length = $sample_length\n";
+		
+		$octave = 3;
 	}
 	
 	if( $vkcode == R_KEY ) {
