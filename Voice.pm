@@ -109,24 +109,17 @@ sub make_sine {
 	
 	my $frequency_divided_by_samplerate = $frequency/$samplerate;
 
-	my $volume_decay_enabled = $volume_decay > 0;
-	my $freq_decay_enabled = $freq_decay > 0;
-
 	# fill the arrays with zeros to start
 	my @data_l = (0) x $samples;
 	my @data_r = (0) x $samples;	
+	
+	for( my $i=0; $i<$samples; $i++) {
 
-	for( my $i=0; $i <$samples; $i++) {
+		# Calculate the pitch, but only bother if volume greater than zero else you can't hear it
+		my $v = sin($carrier_counter *6.28) * $scale;	# I tried to speed up sin with things like memoize and hash tables and lookups but it's not any faster
 
-		if( $left_volume > 0 || $right_volume > 0 ) {
-
-			# Calculate the pitch, but only bother if volume greater than zero else you can't hear it
-			my $v = sin($carrier_counter *6.28) * $scale;	# I tried to speed up sin with things like memoize and hash tables and lookups but it's not any faster
-
-			$data_l[$i] = $v * $left_volume;
-			$data_r[$i] = $v * $right_volume;
-
-		}
+		$data_l[$i] = $v * $left_volume;
+		$data_r[$i] = $v * $right_volume;		
 
 		# modulate the carrier frequency with the current level of modulator_v
 		if( $modulator_wave_ref ) {
@@ -136,19 +129,28 @@ sub make_sine {
 		}
 
 		# volume decay
-		if( $volume_decay_enabled ) {
-			if( $left_volume > 0 ) {
-				$left_volume -= $volume_decay;
-			}
-
-			if( $right_volume > 0 ) {
-				$right_volume -= $volume_decay;
-			}
+		if( $left_volume > 0 ) {
+			$left_volume -= $volume_decay;
+			$right_volume -= $volume_decay;
+		} else {
+			last;
 		}
 
+		# one day we should make this stereo for now lets treat the $volume_decay as mono
+
+		#if( $right_volume > 0 ) {
+		#	$right_volume -= $volume_decay;
+		#}
+		
+		#if( $left_volume <= 0 || $right_volume <= 0 ) {
+		#	last;
+		#}
+
 		# frequency decay
-		if( $freq_decay_enabled && $frequency > 0 ) {
+		if( $frequency > 0 ) {
 			$frequency -= $freq_decay;
+		} else {
+			last;
 		}
 	}
 
