@@ -1,6 +1,8 @@
 # synth
 Perl synthesizer
 
+- new number picker
+    - build_super_number_picker2
 - serialise settings (patches, synth etc) to json
     - try moosex-storage
         - seems to blow up on Patches (actually nested objects)
