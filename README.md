@@ -1,5 +1,5 @@
 # synth
-Perl synthesizer
+Perl/TK synthesizer
 
 - new number picker
     - build_super_number_picker2
