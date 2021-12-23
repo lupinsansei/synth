@@ -548,7 +548,10 @@ sub build_super_number_picker2 {
 	# );
 	
 	my @spinboxes = ();
-	
+
+	print "textvariable:";
+	print $$textvariable;
+
 	# build the rest of the digits
 	for(my $digit=0; $digit<$widget_count; $digit++) {
 		
@@ -568,9 +571,10 @@ sub build_super_number_picker2 {
 
 				my( $value, $action ) = @_;
 
-				print "$value $action\n";
+				print "Spinbox command $value $action\n";
 				
 				# next we want to patch $textvariable by reading out the values of all the other spinboxes around us
+					# do we, or can we just work out what position we are in the decimal thing?
 
 				# for now who cares about incrementing up or down!
 				#if( $action eq "up" && $value == 10 ) {

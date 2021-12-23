@@ -5,6 +5,8 @@ To Do
 
 - new number picker
     - build_super_number_picker2
+        - let's populate it with the textvariable
+            - divide it by 10
 - serialise settings (patches, synth etc) to json
     - try moosex-storage
         - seems to blow up on Patches (actually nested objects)
