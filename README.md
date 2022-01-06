@@ -1,7 +1,7 @@
 # synth
 Perl/TK synthesizer
 
-To Do
+*To Do*
 
 - new number picker
     - build_super_number_picker2
