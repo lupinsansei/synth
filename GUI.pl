@@ -572,6 +572,12 @@ sub build_super_number_picker2 {
 				my( $value, $action ) = @_;
 
 				print "Spinbox command $value $action\n";
+
+				$$textvariable = $value;
+
+				print "textvariable:";
+				print $$textvariable;	# this comes out as 2 when we print it, I think that's it's value
+				print "\n";
 				
 				# next we want to patch $textvariable by reading out the values of all the other spinboxes around us
 					# do we, or can we just work out what position we are in the decimal thing?
@@ -588,7 +594,7 @@ sub build_super_number_picker2 {
 				#print "this_spinbox_index = $this_spinbox_index ";
 				#print @spinboxes;	# these are all the other spinboxes, next we need to work out which one we are, which index
 								
-				#&$command;
+				&$command;
 			
 				# I think I need closures to do this 
 				# my question! https://stackoverflow.com/questions/68141512/can-a-perl-tk-widget-command-access-itself#68141785
