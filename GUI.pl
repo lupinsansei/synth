@@ -573,7 +573,7 @@ sub build_super_number_picker2 {
 
 				print "Spinbox command $value $action\n";
 
-				$$textvariable = $value;
+				$$textvariable = $value;	# this is the bit that updates the variable to have a new value
 
 				print "textvariable:";
 				print $$textvariable;	# this comes out as 2 when we print it, I think that's it's value
@@ -610,6 +610,3 @@ sub build_super_number_picker2 {
 	
 	return $table;
 }
-
-
-
