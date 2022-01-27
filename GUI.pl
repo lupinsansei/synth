@@ -13,11 +13,12 @@ use Patch;
 use Voice;
 use MIDI::Pitch qw(name2freq pitch2name name2pitch);
 use Win32::Sound;
+
+# experimented to try and get export to json to work
 #use JSON;
 #use JSON::Any;
 #use File::Slurp;
-
-use JSON::Syck;
+use JSON::Syck;		# I think only this one worked
 
 use feature qw(switch);
 no warnings 'experimental';
