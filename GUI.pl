@@ -134,8 +134,11 @@ sub print_keysym {
    print "keysym=$keysym_text, numberic=$keysym_decimal\n";
 
 	# change selected octave if 1-5 is pressed
-	 if( $keysym_text =~ /^[0-5]$/ ) {
-		 	$selected_octave = $keysym_text;
+	 if( $keysym_text =~ /^([0-5])$/ ) {
+		 	$selected_octave = $1;
+			# force into number https://stackoverflow.com/questions/288900/how-can-i-convert-a-string-to-a-number-in-perl
+
+			print "Octave changed to $selected_octave\n";			
 	 }
 
 	 print "selected_octave = $selected_octave\n";
