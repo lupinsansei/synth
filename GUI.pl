@@ -133,27 +133,37 @@ sub print_keysym {
 
    print "keysym=$keysym_text, numberic=$keysym_decimal\n";
 
+	# change selected octave if 1-5 is pressed
 	 if( $keysym_text =~ /^[0-5]$/ ) {
 		 	$selected_octave = $keysym_text;
 	 }
 
+	 print "selected_octave = $selected_octave\n";
+	 print "selected_octave+1 = ".($selected_octave+1)."\n";
+
+	my $note = "";
+
 	 given($keysym_text) {
 
-		 play_selected_patch("c$selected_octave") when ("z");
-		 play_selected_patch("c#$selected_octave") when ("s");
-	 	 play_selected_patch("d$selected_octave") when ("x");
-		 play_selected_patch("d#$selected_octave") when ("d");
-		 play_selected_patch("e$selected_octave") when ("c");
-		 play_selected_patch("f$selected_octave") when ("v");
-		 play_selected_patch("f#$selected_octave") when ("g");
-		 play_selected_patch("g$selected_octave") when ("b");
-		 play_selected_patch("g#$selected_octave") when ("h");
-		 play_selected_patch("a$selected_octave") when ("n");
-		 play_selected_patch("a#$selected_octave") when ("j");
-		 play_selected_patch("b$selected_octave") when ("m");
+		 $note = "c$selected_octave" when ("z");
+		 $note = "c#$selected_octave" when ("s");
+	 	 $note = "d$selected_octave" when ("x");
+		 $note = "d#$selected_octave" when ("d");
+		 $note = "e$selected_octave" when ("c");
+		 $note = "f$selected_octave" when ("v");
+		 $note = "f#$selected_octave" when ("g");
+		 $note = "g$selected_octave" when ("b");
+		 $note = "g#$selected_octave" when ("h");
+		 $note = "a$selected_octave" when ("n");
+		 $note = "a#$selected_octave" when ("j");
+		 $note = "b$selected_octave" when ("m");
+		 $note = "c".($selected_octave+1) when ("comma");
+		 $note = "d".($selected_octave+1) when ("period");
+	}
 
-		 play_selected_patch("c".($selected_octave+1)) when ("comma");
-		 play_selected_patch("d".($selected_octave+1)) when ("period");
+	if( $note ) {
+		print "Note = $note\n";
+		play_selected_patch($note);
 	}
 }
 
@@ -477,6 +487,8 @@ sub play_selected_patch {
 
 	my($note) = @_;
 	
+	print "play_selected_patch $note\n";
+
 	$synth->play_patch(getSelectedPatch(), undef, name2freq($note));	# note is kind of like a closure
 }
 
