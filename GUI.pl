@@ -134,34 +134,31 @@ sub print_keysym {
    print "keysym=$keysym_text, numberic=$keysym_decimal\n";
 
 	# change selected octave if 1-5 is pressed
-	 if( $keysym_text =~ /^([0-5])$/ ) {
-		 	$selected_octave = $1;
-			# force into number https://stackoverflow.com/questions/288900/how-can-i-convert-a-string-to-a-number-in-perl
+	if( $keysym_text =~ /^([0-5])$/ ) {
+		$selected_octave = $1;
+		# force into number https://stackoverflow.com/questions/288900/how-can-i-convert-a-string-to-a-number-in-perl
 
-			print "Octave changed to $selected_octave\n";			
-	 }
-
-	 print "selected_octave = $selected_octave\n";
-	 print "selected_octave+1 = ".($selected_octave+1)."\n";
-
+		print "Octave changed to $selected_octave\n";			
+	}
+	
 	my $note = "";
 
-	 given($keysym_text) {
+	given($keysym_text) {
 
-		 $note = "c$selected_octave" when ("z");
-		 $note = "c#$selected_octave" when ("s");
-	 	 $note = "d$selected_octave" when ("x");
-		 $note = "d#$selected_octave" when ("d");
-		 $note = "e$selected_octave" when ("c");
-		 $note = "f$selected_octave" when ("v");
-		 $note = "f#$selected_octave" when ("g");
-		 $note = "g$selected_octave" when ("b");
-		 $note = "g#$selected_octave" when ("h");
-		 $note = "a$selected_octave" when ("n");
-		 $note = "a#$selected_octave" when ("j");
-		 $note = "b$selected_octave" when ("m");
-		 $note = "c".($selected_octave+1) when ("comma");
-		 $note = "d".($selected_octave+1) when ("period");
+		$note = "c$selected_octave" when ("z");
+		$note = "c#$selected_octave" when ("s");
+	 	$note = "d$selected_octave" when ("x");
+		$note = "d#$selected_octave" when ("d");
+		$note = "e$selected_octave" when ("c");
+		$note = "f$selected_octave" when ("v");
+		$note = "f#$selected_octave" when ("g");
+		$note = "g$selected_octave" when ("b");
+		$note = "g#$selected_octave" when ("h");
+		$note = "a$selected_octave" when ("n");
+		$note = "a#$selected_octave" when ("j");
+		$note = "b$selected_octave" when ("m");
+		$note = "c".($selected_octave+1) when ("comma");
+		$note = "d".($selected_octave+1) when ("period");
 	}
 
 	if( $note ) {
