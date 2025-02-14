@@ -81,7 +81,7 @@ $mw->Label(-text => 'Synth Gui')->pack;
 $mw->Label(-text => 'Patches')->pack(-side => 'left', -anchor => 'ne', -padx => 8);
 
 my $lbox = $mw->Listbox()->pack(-side => 'left', -anchor => 'ne', -padx => 8);
-$lbox->insert('end', keys $synth->{Patches} );
+$lbox->insert('end', keys %{$synth->{Patches}} );
 $lbox->bind('<<ListboxSelect>>' => \&changePatch );
 
 
