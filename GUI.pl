@@ -450,14 +450,25 @@ sub build_keyboard {
 
 	my @notes = map { pitch2name($start_pitch + $_) } 0 .. ($keys - 1);
 
-	my $keyboard = $mw->Frame()->pack(-side => 'top', -padx => 10, -pady => 10);
+	my $white_key_width = 45;
+	my $white_key_height = 160;
+	my $black_key_width = 28;
+	my $black_key_height = 85;
 
+	my $white_key_count = scalar grep { $_ !~ /#/ } @notes;
+	my $keyboard_width = $white_key_count * $white_key_width;
+
+	my $keyboard = $mw->Frame(-width => $keyboard_width, -height => $white_key_height)
+		->pack(-side => 'top', -padx => 10, -pady => 10);
+	$keyboard->packPropagate(0);
+
+	my $white_index = 0;
 	my $index = 0;
 	while( $index < @notes ) {
 
 		my $white_note = $notes[$index];
 
-		my $key_frame = $keyboard->Frame(-width => 45, -height => 160)->pack(-side => 'left', -padx => 1, -pady => 0);
+		my $key_frame = $keyboard->Frame(-width => $white_key_width, -height => $white_key_height)->pack(-side => 'left', -padx => 0, -pady => 0);
 		$key_frame->packPropagate(0);
 
 		my $white_button = build_key($key_frame, $white_note, 4, "white");
@@ -465,11 +476,17 @@ sub build_keyboard {
 
 		if( $index + 1 < @notes && $notes[$index + 1] =~ /#/ ) {
 			my $black_note = $notes[$index + 1];
-			my $black_button = build_key($key_frame, $black_note, 3, "black");
-			$black_button->place(-in => $key_frame, -relx => 0.55, -relwidth => 0.7, -rely => 0, -anchor => 'n');
+			my $black_button = build_key($keyboard, $black_note, 3, "black");
+
+			my $center_x = ($white_index + 1) * $white_key_width;
+			my $left_x = int($center_x - ($black_key_width / 2));
+
+			$black_button->place(-x => $left_x, -y => 0, -width => $black_key_width, -height => $black_key_height, -bordermode => 'outside');
+			$black_button->raise;
 			$index++;
 		}
 
+		$white_index++;
 		$index++;
 	}
 }
