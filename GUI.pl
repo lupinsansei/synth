@@ -448,22 +448,30 @@ sub build_keyboard {
 	my $keys = 12;
 	my $start_pitch = name2pitch('c' . $selected_octave);
 
-	my $table = $mw->Table(-rows => 2, -columns => $keys, -fixedrows => 1);
+	my @notes = map { pitch2name($start_pitch + $_) } 0 .. ($keys - 1);
 
-	for( my $pitch=$start_pitch; $pitch<$start_pitch+$keys; $pitch++ ) {
-		my $name = pitch2name($pitch);
+	my $keyboard = $mw->Frame()->pack(-side => 'top', -padx => 10, -pady => 10);
 
-		my $bt;
-		if( $name =~ /#/ ) {
-			$bt = build_key($table, $name, 3, "black");	# black key
-			$table->put(0,$pitch-$start_pitch,$bt);
-		} else {
-			$bt = build_key($table, $name, 4, "white");	# white key
-			$table->put(1,$pitch-$start_pitch,$bt);
+	my $index = 0;
+	while( $index < @notes ) {
+
+		my $white_note = $notes[$index];
+
+		my $key_frame = $keyboard->Frame(-width => 45, -height => 160)->pack(-side => 'left', -padx => 1, -pady => 0);
+		$key_frame->packPropagate(0);
+
+		my $white_button = build_key($key_frame, $white_note, 4, "white");
+		$white_button->pack(-side => 'bottom', -fill => 'both', -expand => 1);
+
+		if( $index + 1 < @notes && $notes[$index + 1] =~ /#/ ) {
+			my $black_note = $notes[$index + 1];
+			my $black_button = build_key($key_frame, $black_note, 3, "black");
+			$black_button->place(-in => $key_frame, -relx => 0.55, -relwidth => 0.7, -rely => 0, -anchor => 'n');
+			$index++;
 		}
-	}
 
-	$table->pack;
+		$index++;
+	}
 }
 
 sub build_key {
@@ -472,7 +480,7 @@ sub build_key {
 
 	my $bt = $table->Button(
 		-text		=> $note,
-		-width		=> 3,
+		-width		=> ($background eq 'black' ? 2 : 3),
 		-height		=> $height,
 		-background => $background,
 		-foreground => ($background eq 'black' ? 'white' : 'black'),
