@@ -475,6 +475,7 @@ sub build_key {
 		-width		=> 3,
 		-height		=> $height,
 		-background => $background,
+		-foreground => ($background eq 'black' ? 'white' : 'black'),
 		-command => sub {
 			play_selected_patch($note);			# note is kind of like a closure?
 		}
