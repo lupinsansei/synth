@@ -261,6 +261,11 @@ sub changePatch {
 		$table->Checkbutton(-variable => \$selected_patch->{chord}, -command => sub{ OnPatchChange($selected_patch) } )
 	);
 
+		# add a mutate button
+	$table->put($row_index, 2,
+		$table->Button(-text => "Mutate", -command => sub { $selected_patch->mutate(); OnPatchChange($selected_patch) } )
+	);
+
 	$row_index++;
 
 	# foreach voice in patch

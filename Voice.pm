@@ -1,7 +1,7 @@
 package Voice;
 
 use Moose; # automatically turns on strict and warnings
-use CHI::Memoize qw(:all);
+#use CHI::Memoize qw(:all);
 use Storable qw(dclone);
 use feature qw(switch);
 use Data::Dumper;
@@ -24,6 +24,35 @@ has 'freq_decay'		=> ( is => 'rw', isa => 'Num', default => 0 );
 has 'delay'				=> ( is => 'rw', isa => 'Num', default => 0 );
 
 has 'modulators'		=> ( is => 'rw', isa => 'ArrayRef[Voice]', required => 0 );
+
+sub mutate {
+	my $self = shift;
+
+	$self->volume_multiplier( mutate_within_percent($self->volume_multiplier, 0.15, 0.05) );
+	$self->freq_multiplier( mutate_within_percent($self->freq_multiplier, 0.10, 0.05) );
+
+	if( defined $self->volume_decay && $self->volume_decay > 0 ) {
+		$self->volume_decay( mutate_within_percent($self->volume_decay, 0.25, 0) );
+	}
+
+	if( defined $self->freq_decay && $self->freq_decay > 0 ) {
+		$self->freq_decay( mutate_within_percent($self->freq_decay, 0.25, 0) );
+	}
+
+	if( defined $self->delay && $self->delay > 0 ) {
+		$self->delay( mutate_within_percent($self->delay, 0.20, 0) );
+	}
+
+	if( $self->modulators && scalar @{$self->modulators} ) {
+		foreach my $voice (@{$self->modulators}) {
+			$voice->mutate();
+		}
+	}
+
+	return;
+}
+
+
 
 sub render {
 	my ($self, $samplerate, $bits, $length, $frequency, $left_volume, $right_volume) = @_;
@@ -286,6 +315,24 @@ sub make_wav_file {
 	}
 
 	return [ \@data_l, \@data_r ];
+}
+
+sub mutate_within_percent {
+	my ($value, $percent, $minimum) = @_;
+
+	return $value unless defined $value;
+	return $value if $value == 0;
+
+	my $delta = (rand() * 2 * $percent) - $percent;
+	my $mutated = $value * (1 + $delta);
+
+	if( defined $minimum ) {
+		$mutated = $minimum if $mutated < $minimum;
+	} elsif( $mutated < 0 ) {
+		$mutated = 0;
+	}
+
+	return $mutated;
 }
 
 return 1;

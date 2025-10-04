@@ -16,7 +16,7 @@ package Patch;
 	has 'voices'				=> ( is => 'rw', isa => 'ArrayRef[Voice]', required => 1 );
 
 	has 'attack'				=> ( is => 'rw', isa => 'Num', default => 0 );	# these are slower than volume_decay on voice
-	has 'decay'					=> ( is => 'rw', isa => 'Num', default => 1 );		# these are slower than volume_decay on voice
+	has 'decay'					=> ( is => 'rw', isa => 'Num', default => 1 );	# these are slower than volume_decay on voice
 
 	has 'rendered_frequency'	=> ( is => 'rw', isa => 'Num', required => 0 );	# the frequency it was rendered at, later used to change the pitch
 
@@ -24,6 +24,30 @@ package Patch;
 	has 'rendered_wave'			=> ( is => 'rw', isa => 'Str' );
 
 	has 'chord' 				=> ( is => 'rw', isa => 'Bool', default => 0 );
+
+sub mutate {
+
+	my $self = shift;
+
+	if( defined $self->length && $self->length > 0 ) {
+		$self->length( mutate_within_percent($self->length, 0.10, 0.05) );
+	}
+
+	if( defined $self->attack && $self->attack > 0 ) {
+		$self->attack( mutate_within_percent($self->attack, 0.25, 0) );
+	}
+
+	if( defined $self->decay && $self->decay > 0 ) {
+		$self->decay( mutate_within_percent($self->decay, 0.25, 0.05) );
+	}
+
+	foreach my $voice (@{$self->voices}) {
+		$voice->mutate();
+	}
+
+	return;
+}
+
 
 sub render {
 	my ($self, $frequency, $samplerate, $bits) = @_;
@@ -177,6 +201,25 @@ sub filter {
 	}
 
 	return [ \@data_l, \@data_r ];
+}
+
+sub mutate_within_percent {
+
+	my ($value, $percent, $minimum) = @_;
+
+	return $value unless defined $value;
+	return $value if $value == 0;
+
+	my $delta = (rand() * 2 * $percent) - $percent;
+	my $mutated = $value * (1 + $delta);
+
+	if( defined $minimum ) {
+		$mutated = $minimum if $mutated < $minimum;
+	} elsif( $mutated < 0 ) {
+		$mutated = 0;
+	}
+
+	return $mutated;
 }
 
 return 1;
