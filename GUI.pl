@@ -445,7 +445,7 @@ sub build_keyboard {
 
 	my( $mw ) = @_;
 
-	my $keys = 12;
+	my $keys = 13; # include the next octave's C so UI matches keyboard shortcuts
 	my $start_pitch = name2pitch('c' . $selected_octave);
 
 	my @notes = map { pitch2name($start_pitch + $_) } 0 .. ($keys - 1);
