@@ -51,3 +51,7 @@ Thumbs.db
 /.vscode
 /nytprof.out
 /nytprof
+_Inline/.lock
+_Inline/config-x86_64-linux-gnu-thread-multi-5.038002
+*.inl
+*.so
