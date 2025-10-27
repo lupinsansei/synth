@@ -117,6 +117,9 @@ my @voices = qw();
 
 $table->pack;
 
+# Add waveform visualization canvas
+my $waveform_canvas = $mw->Canvas(-width => 600, -height => 150, -bg => 'black', -relief => 'sunken', -bd => 2)->pack(-side => 'top', -padx => 10, -pady => 5);
+
 my $selected_octave = 3;
 build_keyboard($mw);
 
@@ -287,6 +290,9 @@ sub changePatch {
 	$mw->update;	
 
 	$synth->render_patch_as_middle_c($selected_patch);
+	
+	# Update waveform visualization
+	draw_waveform($waveform_canvas, $selected_patch->rendered_sample);
 
 	$mw->Unbusy;
 	$mw->update;
@@ -402,12 +408,15 @@ sub OnPatchChange {
 	$mw->update;
 	
 	$synth->render_patch_as_middle_c($patch);
+	
+	# Update waveform visualization
+	draw_waveform($waveform_canvas, $patch->rendered_sample);
 
 	$mw->Unbusy;
 	$mw->update;
 
-	$synth->play_patch($patch, undef, name2freq('c' . $selected_octave));
-	#$dialog->Show();
+	# Removed automatic playback - user can play manually with keyboard
+	#$synth->play_patch($patch, undef, name2freq('c' . $selected_octave));
 }
 
 sub AddTableHeader {
@@ -450,10 +459,10 @@ sub build_keyboard {
 
 	my @notes = map { pitch2name($start_pitch + $_) } 0 .. ($keys - 1);
 
-	my $white_key_width = 45;
-	my $white_key_height = 160;
-	my $black_key_width = 28;
-	my $black_key_height = 85;
+	my $white_key_width = 50;
+	my $white_key_height = 140;
+	my $black_key_width = 30;
+	my $black_key_height = 80;
 
 	my $white_key_count = scalar grep { $_ !~ /#/ } @notes;
 	my $keyboard_width = $white_key_count * $white_key_width;
@@ -521,6 +530,90 @@ sub play_selected_patch {
 	print "play_selected_patch $note\n";
 
 	$synth->play_patch(getSelectedPatch(), undef, name2freq($note));	# note is kind of like a closure
+}
+
+sub draw_waveform {
+	my($canvas, $sample) = @_;
+	
+	return unless $sample && @{$sample->[0]} > 0;
+	
+	# Clear the canvas
+	$canvas->delete('all');
+	
+	my $canvas_width = $canvas->cget(-width);
+	my $canvas_height = $canvas->cget(-height);
+	my $center_y = $canvas_height / 2;
+	
+	# Find the last non-zero sample to trim silence
+	my $sample_count = @{$sample->[0]};
+	my $last_nonzero = $sample_count - 1;
+	
+	for my $i (reverse 0..$sample_count-1) {
+		if (abs($sample->[0]->[$i]) > 100) { # threshold for "silence"
+			$last_nonzero = $i;
+			last;
+		}
+	}
+	
+	# Use only the non-silent portion
+	my $active_sample_count = $last_nonzero + 1;
+	my $display_samples = $canvas_width;
+	my $step = int($active_sample_count / $display_samples) || 1;
+	
+	# Draw background gradient effect
+	for my $y (0..$canvas_height) {
+		my $intensity = int(20 * (1 - abs($y - $center_y) / $center_y));
+		my $color = sprintf("#%02x%02x%02x", 0, $intensity, 0);
+		$canvas->createLine(0, $y, $canvas_width, $y, -fill => $color, -width => 1);
+	}
+	
+	# Draw grid lines
+	$canvas->createLine(0, $center_y, $canvas_width, $center_y, -fill => '#006600', -width => 2);
+	for my $i (1..4) {
+		my $y = ($canvas_height / 4) * $i;
+		$canvas->createLine(0, $y, $canvas_width, $y, -fill => '#003300', -width => 1);
+	}
+	
+	# Add vertical grid lines
+	for my $i (1..9) {
+		my $x = ($canvas_width / 10) * $i;
+		$canvas->createLine($x, 0, $x, $canvas_height, -fill => '#002200', -width => 1);
+	}
+	
+	# Find the maximum amplitude for scaling
+	my $max_amplitude = 0;
+	for my $i (0..$active_sample_count-1) {
+		my $amplitude = abs($sample->[0]->[$i]);
+		$max_amplitude = $amplitude if $amplitude > $max_amplitude;
+	}
+	
+	return if $max_amplitude == 0;
+	
+	# Draw the waveform
+	my @points = ();
+	for my $x (0..$display_samples-1) {
+		my $sample_index = $x * $step;
+		last if $sample_index >= $active_sample_count;
+		
+		my $amplitude = $sample->[0]->[$sample_index];
+		my $normalized = $amplitude / $max_amplitude;
+		my $y = $center_y - ($normalized * ($canvas_height / 2 - 10));
+		
+		push @points, $x, $y;
+	}
+	
+	# Draw the main waveform line with glow effect
+	if (@points >= 4) {
+		# Draw glow layers
+		for my $width (6, 4, 2) {
+			my $alpha = int(255 / (8 - $width));
+			my $color = sprintf("#00%02x00", $alpha);
+			$canvas->createLine(@points, -fill => $color, -width => $width, -smooth => 1);
+		}
+		
+		# Draw the main bright line
+		$canvas->createLine(@points, -fill => '#00ff00', -width => 1, -smooth => 1);
+	}
 }
 
 sub build_super_number_picker {
