@@ -1,0 +1,13 @@
+name: Synth controls and playback tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  perl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install headless Tk test dependencies
+        run: sudo apt-get update && sudo apt-get install -y perl-tk xvfb
+      - name: Test models and real Tk widgets without audio
+        run: xvfb-run -a prove -I. -Ilib t/*.t

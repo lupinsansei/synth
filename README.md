@@ -36,3 +36,32 @@ Perl/TK synthesizer
 - With the synth maybe use the TK program to set the sounds but the console program to capture the keys? As console can do key up nicely.
 
 Originally sponsored by [PICA](https://pica.org.au/)
+
+## Super Spinbox
+
+The oscillator/modulator frequency, volume, decay and delay controls now have a
+`+` and `-` button for every digit. A digit changes its own decimal place with
+normal carry/borrow: `9.9999` plus one ten-thousandth becomes `10.0000`.
+Up always increases the numeric value, including when negative. Click the sign
+to negate, or type a whole number in the entry below and press Enter/tab away.
+Invalid text is highlighted and never sent to the synthesizer; Escape restores
+the last value. Existing -1000..1000 limits remain. External voice changes refresh
+the digits without triggering a second render.
+
+Try the standalone, **silent** Tk demo (no Windows audio dependencies):
+
+```sh
+perl examples/super_spinbox.pl
+```
+
+Run the model and real Tk widget tests with Perl/Tk installed:
+
+```sh
+prove -Ilib t/super_spinbox.t
+xvfb-run -a prove -Ilib t/super_spinbox_tk.t  # Linux/headless; use prove directly with a display
+```
+
+`lib/SuperSpinbox.pm` is reusable with a parent widget, scalar variable, decimal
+places, bounds and change callback. `lib/SuperSpinbox/Value.pm` holds the testable
+fixed-point stepping model. The full synthesizer still requires its original
+Windows audio/MIDI/Moose dependencies; the demo does not play audio.

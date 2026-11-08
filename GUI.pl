@@ -1,4 +1,7 @@
 use strict;
+use FindBin;
+use lib "$FindBin::Bin", "$FindBin::Bin/lib";
+use SuperSpinbox;
 use warnings;
 use Data::Dumper;
 
@@ -123,6 +126,10 @@ build_keyboard($mw);
 $mw->bind('<KeyPress>' => \&print_keysym);
 
 sub print_keysym {
+
+    # Typing a value is editing, not a request to play the keyboard.
+    my $focus = $mw->focus;
+    return if $focus && ($focus->isa('Tk::Entry') || $focus->isa('Tk::Spinbox'));
 
 	# based on https://www.perlmonks.org/?node_id=144722
 
@@ -332,28 +339,27 @@ sub AddVoicePanel {
 
 	# f multiplier
 	$table->put($row_index, $col++,
-		#build_super_number_picker($table, 3, \$voice->{freq_multiplier}, sub{ OnPatchChange($patch) } )
-		build_super_number_picker2($table, 3, 1, \$voice->{freq_multiplier}, sub{ OnPatchChange($patch) } )
+		build_super_number_picker($table, 4, \$voice->{freq_multiplier}, sub{ OnPatchChange($patch) } )
 	);
 
 	# v multiplier
 	$table->put($row_index, $col++,
-		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.1, -width => 9, -textvariable => \$voice->{volume_multiplier}, -command => sub{ OnPatchChange($patch) } )
+		build_super_number_picker($table, 4, \$voice->{volume_multiplier}, sub{ OnPatchChange($patch) } )
 	);
 
 	# f Decay
 	$table->put($row_index, $col++,
-		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.001, -width => 9, -textvariable => \$voice->{freq_decay}, -command => sub{ OnPatchChange($patch) } )
+		build_super_number_picker($table, 6, \$voice->{freq_decay}, sub{ OnPatchChange($patch) } )
 	);
 
 	# v Decay
 	$table->put($row_index, $col++,
-		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.00001, -width => 9, -textvariable => \$voice->{volume_decay}, -command => sub{ OnPatchChange($patch) } )
+		build_super_number_picker($table, 8, \$voice->{volume_decay}, sub{ OnPatchChange($patch) } )
 	);
 
 	# delay
 	$table->put($row_index, $col++,
-		$table->Spinbox(-from => -1000, -to => 1000, -increment => 0.01, -width => 9, -textvariable => \$voice->{delay}, -command => sub{ OnPatchChange($patch) } )
+		build_super_number_picker($table, 3, \$voice->{delay}, sub{ OnPatchChange($patch) } )
 	);
 
 	# modulators
@@ -524,133 +530,8 @@ sub play_selected_patch {
 }
 
 sub build_super_number_picker {
-	
-	my( $parent_table, $digits, $textvariable, $command ) = @_;
-	
-	my $table = $parent_table->Table(-rows => 1, -columns => $digits, -fixedrows => 1);
-	$table->pack;
-	
-	my $increment = 1;
-	
-	# the first digit before the decimal place
-	$table->put(0, 0,
-		$table->Spinbox( -from => -1000, -to => 1000, -increment => 1, -width => 4, -textvariable => $textvariable, -command => $command ),		
-	);
-	
-	# build the rest of the digits
-	for(my $digit=1; $digit<$digits; $digit++) {
-		
-		$increment = $increment / 10;
-		
-		my $widget = undef;
-		$widget = $table->Spinbox( -from => -1000, -to => 1000, -increment => $increment, -width => 1, -textvariable => $textvariable, -command => sub {
-			
-			
-			&$command;
-		
-			
-			# I think I need closures to do this 
-			# my question! https://stackoverflow.com/questions/68141512/can-a-perl-tk-widget-command-access-itself#68141785
-			# https://www.perlmonks.org/?node_id=274254
-			# https://stackoverflow.com/questions/32834508/perl-tk-tcl-can-widget-callbacks-take-parameters
-			
-
-			# we can access the spinbox in here by making sure that the variable we assign it to is already declared first
-			# e.g. print $widget->cget(-increment);
-			# we can't use $digit anyway as it's stuck at 4, it's final value
-			# maybe increment is enough, we should be able to work $digit back from this via some algorithm
-			
-			$widget->xview($digit+1);	# To only show the digit we want out of the whole number the variable is bound to. I don't know why this works! I thought we would need $self or $this or something here
-		});	
-		
-		$widget->xview($digit+1);
-	
-		$table->put(0, $digit, $widget);
-	}
-	
-	return $table;
-}
-
-sub build_super_number_picker2 {
-	
-	my( $parent_table, $digits, $decimal_point_position, $textvariable, $command ) = @_;
-	
-	my $widget_count = $digits+1; # +1 for the decimal point
-	
-	my $table = $parent_table->Table(
-		-rows => 1, 
-		-columns => $widget_count,
-		-scrollbars => ''	# none
-	);
-	$table->pack;
-	
-	my $increment = 1;
-	
-	# # the first digit before the decimal place
-	# $table->put(0, 0,
-		# $table->Spinbox( -from => -1000, -to => 1000, -increment => 1, -width => 4, -textvariable => $textvariable, -command => $command ),		
-	# );
-	
-	my @spinboxes = ();
-
-	print "textvariable:";
-	print $$textvariable;
-
-	# build the rest of the digits
-	for(my $digit=0; $digit<$widget_count; $digit++) {
-		
-		#$increment = $increment / 10;
-		
-		my $widget = undef;
-		
-		if( $digit == $decimal_point_position ) {
-			$widget = ".";		
-		} else {		
-		
-			my $this_spinbox_index = $digit;
-			
-			# let's set the value of this spinbox from $textvariable dividing by 10 each time?
-			
-			$widget = $table->Spinbox( -from => 0, -to => 9, -increment => $increment, -width => 1, -command => sub {
-
-				my( $value, $action ) = @_;
-
-				print "Spinbox command $value $action\n";
-
-				$$textvariable = $value;	# this is the bit that updates the variable to have a new value
-
-				print "textvariable:";
-				print $$textvariable;	# this comes out as 2 when we print it, I think that's it's value
-				print "\n";
-				
-				# next we want to patch $textvariable by reading out the values of all the other spinboxes around us
-					# do we, or can we just work out what position we are in the decimal thing?
-
-				# for now who cares about incrementing up or down!
-				#if( $action eq "up" && $value == 10 ) {
-				#	print "increment left\n";
-				#}
-
-				#if( $action eq "down" && $value == -1 ) {
-				#	print "go down";
-				#}				
-				
-				#print "this_spinbox_index = $this_spinbox_index ";
-				#print @spinboxes;	# these are all the other spinboxes, next we need to work out which one we are, which index
-								
-				&$command;
-			
-				# I think I need closures to do this 
-				# my question! https://stackoverflow.com/questions/68141512/can-a-perl-tk-widget-command-access-itself#68141785
-				# https://www.perlmonks.org/?node_id=274254
-				# https://stackoverflow.com/questions/32834508/perl-tk-tcl-can-widget-callbacks-take-parameters				
-			});
-			
-			push(@spinboxes, $widget);
-		}
-	
-		$table->put(0, $digit, $widget);
-	}
-	
-	return $table;
+    my ($parent, $places, $variable, $command) = @_;
+    my $control = SuperSpinbox->new(parent => $parent, variable => $variable,
+        integers => 4, places => $places, min => -1000, max => 1000, command => $command);
+    return $control->widget;
 }
