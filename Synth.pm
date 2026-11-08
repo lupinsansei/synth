@@ -1,5 +1,10 @@
 package Synth;
 
+    use FindBin;
+    use lib "$FindBin::Bin/lib";
+    use ChordMemory qw(chord_frequencies);
+    use Scalar::Util qw(refaddr);
+
 	use Moose; # automatically turns on strict and warnings
 	
 	use Time::HiRes qw( time );
@@ -19,6 +24,9 @@ package Synth;
 	has 'Channels'	=> ( is => 'rw', isa => 'ArrayRef', default => sub { [] } );
 
 	has 'ChannelIndex'		=> ( is => 'rw', isa => 'Int', default => 0 );
+
+    has 'chord_memory' => (is => 'rw', isa => 'Bool', default => 0);
+    has 'chord_type' => (is => 'rw', isa => 'Str', default => 'Major 7th');
 
 	has 'Keys'				=> ( is => 'rw', isa => 'HashRef', default => sub { {} } );
 
@@ -74,75 +82,69 @@ package Synth;
 		printf("time: %.2f\n", $end - $start);
 	}
 
-	sub play_patch {
+    sub play_patch {
+        my ($self, $patch, $vkcode, $frequency, $offset, $length) = @_;
+        return if defined $vkcode && exists $self->Keys->{$vkcode}; # held-key repeat
+        my $frequencies = chord_frequencies($frequency, $self->chord_memory, $self->chord_type);
+        my @handles;
+        my $ok = eval {
+            for my $note (@$frequencies) {
+                push @handles, $self->_play_single($patch, $note, $offset, $length);
+            }
+            1;
+        };
+        unless ($ok) {
+            my $error = $@;
+            eval { $self->_release_voices(\@handles) };
+            die $error;
+        }
+        # Remember the actual handles, not slot numbers: a completed slot may be
+        # reused by another key before this key is released.
+        $self->Keys->{$vkcode} = \@handles if defined $vkcode;
+        return \@handles;
+    }
 
-		my( $self, $patch, $vkcode, $frequency, $offset, $length ) = @_;
+    sub _play_single {
+        my ($self, $patch, $frequency, $offset, $length) = @_;
+        my $index = 0;
+        $index++ while $index < @{$self->Channels} && $self->Channels->[$index] && !$self->Channels->[$index]->Status();
+        # Grow as necessary instead of wrapping over active chord notes.
+        $self->ChannelIndex($index);
+        my $rate = ($self->samplerate / $patch->rendered_frequency) * $frequency;
+        my $wave = Win32::Sound::WaveOut->new($rate, $self->bits, $self->channels);
+        if (defined $offset || defined $length) {
+            $wave->Load(sample2wav($patch->rendered_sample, $offset, $length));
+        } else {
+            $wave->Load($patch->{rendered_wave});
+        }
+        $wave->Write();
+        $self->Channels->[$index] = $wave;
+        return $wave;
+    }
 
-		if( defined $vkcode && defined $self->Keys->{$vkcode} ) {
+    sub stop_patch {
+        my ($self, $vkcode) = @_;
+        return unless defined $vkcode;
+        my $handles = delete $self->Keys->{$vkcode};
+        return unless $handles;
+        # Preset/toggle changes affect the next note, not which held voices stop.
+        $self->_release_voices($handles);
+    }
 
-			# sample already triggered from this key - don't retrigger it
-			return;
-		}
-
-		# get channel to use if this channel is in use
-		if( $self->Channels->[$self->ChannelIndex] && !$self->Channels->[$self->ChannelIndex]->Status() ) {
-
-			# polyphonic - use  next channel
-			$self->ChannelIndex($self->ChannelIndex + 1 );
-			if( $self->ChannelIndex > $self->polyphony ) {
-				$self->ChannelIndex(0);
-			}
-			# monophonic - stop sound on this channel (also Reset() works here), don't know what's best though
-			#$self->Channels->[$self->ChannelIndex]->Pause();
-
-		}
-		print "Channel: " . $self->ChannelIndex . " $patch->{name} ";
-
-		my $samplerate = ($self->samplerate / $patch->rendered_frequency) * $frequency;
-
-		$self->Channels->[$self->ChannelIndex] = new Win32::Sound::WaveOut($samplerate, $self->bits, $self->channels);	# http://search.cpan.org/~acalpini/Win32-Sound/Sound.pm
-
-		if( defined $offset || defined $length  ) {
-			# we should cache this if offset and length stay the same
-			$self->Channels->[$self->ChannelIndex]->Load( sample2wav( $patch->rendered_sample, $offset, $length ) );
-		} else {
-			$self->Channels->[$self->ChannelIndex]->Load( $patch->{rendered_wave} );
-		}
-
-		$self->Channels->[$self->ChannelIndex]->Write();
-		if( defined $vkcode ) {
-				$self->Keys->{$vkcode} = $self->ChannelIndex;
-		}
-
-		print "$patch->{name} ($frequency)\n";
-
-		# reset sound to begining so it is ready to play again, we can also just pause it $WAV->Pause() if $WAV or Unload()
-		#$self->Channels->[$channel_number]->Pause();
-
-		#$channel->Reset();	# if we don't reset the sound we have to wait to the end before it can be played again
-
-		# change frequency in real time here to play different pitches
-		#$self->Channels->[$channel_number]->CloseDevice();	# have to close or the pitch can't be changed
-		#$channel->OpenDevice();
-		#1 until $WAV->Status();  			# wait for completion
-
-		#$freq -= 100;
-	}
-
-	sub stop_patch {
-		my( $self,$vkcode ) = @_;
-
-		if( defined $self->Keys->{$vkcode} ) {
-
-			print "stopping patch $vkcode on channel ".$self->Keys->{$vkcode}."\n";
-
-			#$self->Channels->[$self->Keys->{$vkcode}]->Pause();
-			$self->Channels->[$self->Keys->{$vkcode}]->Pause();	# pause isn't clicky whereas reset is
-			#$self->Channels->[$self->Keys->{$vkcode}]->Reset();	# clicky but Status() doesn't work above otherwise
-			delete $self->Keys->{$vkcode};
-		}
-
-	}
+    sub _release_voices {
+        my ($self, $handles) = @_;
+        my $error;
+        for my $wave (@$handles) {
+            eval { $wave->Pause(); 1 } or $error ||= $@;
+            # Paused WaveOut handles need not report Status=finished. Free their
+            # slots explicitly, but never remove a different note that reused one.
+            for my $i (0 .. $#{$self->Channels}) {
+                my $current = $self->Channels->[$i];
+                $self->Channels->[$i] = undef if $current && refaddr($current) == refaddr($wave);
+            }
+        }
+        die $error if $error;
+    }
 
 	sub sample2wav {
 

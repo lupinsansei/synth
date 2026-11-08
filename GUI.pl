@@ -2,6 +2,8 @@ use strict;
 use FindBin;
 use lib "$FindBin::Bin", "$FindBin::Bin/lib";
 use SuperSpinbox;
+use MiniSequencer::Tk;
+use ChordMemory qw(chord_names);
 use warnings;
 use Data::Dumper;
 
@@ -48,7 +50,7 @@ my $synth = new Synth(
 		'bass' => new Patch(
 			name => "bass",
 			length => 1,
-			chord => 1,
+			chord => 0,
 			voices => [
 				 new Voice( freq_multiplier => 2.00, freq_decay => 0.0004, volume_decay => 0.0001,
 				 modulators => [
@@ -75,6 +77,12 @@ my $mw = MainWindow->new;
 #$c->pack;
 
 $mw->Label(-text => 'Synth Gui')->pack;
+
+# Playback-only harmony: never calls OnPatchChange or regenerates a sample.
+my $harmony = $mw->Frame->pack(-fill => 'x');
+$harmony->Checkbutton(-text => 'Chord memory', -variable => \$synth->{chord_memory})->pack(-side => 'left');
+$harmony->Optionmenu(-variable => \$synth->{chord_type}, -options => chord_names())->pack(-side => 'left');
+
 
 # $mw->Button(
 #     -text    => 'Quit',
@@ -121,9 +129,16 @@ my @voices = qw();
 $table->pack;
 
 my $selected_octave = 3;
+my $sequencer = MiniSequencer::Tk->new(parent => $mw,
+    root => sub { ($selected_octave + 1) * 12 },
+    play => sub { $synth->play_patch(getSelectedPatch(), 'mini-sequencer', $_[0]); },
+    stop => sub { $synth->stop_patch('mini-sequencer'); });
+$sequencer->widget->pack(-fill => 'x', -pady => 6);
+
 build_keyboard($mw);
 
 $mw->bind('<KeyPress>' => \&print_keysym);
+$mw->bind('<KeyRelease>' => sub { my $widget = shift; $synth->stop_patch($widget->XEvent->K); });
 
 sub print_keysym {
 
@@ -170,7 +185,7 @@ sub print_keysym {
 
 	if( $note ) {
 		print "Note = $note\n";
-		play_selected_patch($note);
+		$synth->play_patch(getSelectedPatch(), $keysym_text, name2freq($note));
 	}
 }
 
@@ -223,7 +238,7 @@ $file->command(
 #     -command     => \&exit,
 # );
 
-CenterWindow($mw, 800, 400);
+CenterWindow($mw, 1200, 650);
 
 setSelectedPatchByName("bass");
 
@@ -261,7 +276,7 @@ sub changePatch {
 
 	# chord
 	$table->put($row_index, 0,
-		"Chord"
+		"Baked chord (legacy)"
 	);
 
 	$table->put($row_index, 1,

@@ -3,10 +3,6 @@ Perl/TK synthesizer
 
 *To Do*
 
-- new number picker
-    - build_super_number_picker2
-        - let's populate it with the textvariable
-            - divide it by 10
 - serialise settings (patches, synth etc) to json
     - try moosex-storage
         - seems to blow up on Patches (actually nested objects)
@@ -26,7 +22,6 @@ Perl/TK synthesizer
 - Try PDL one day but that’s super complex
 - Getting rid of lots of If statements helped
 - Add an attack as well as decay. Stop generating samples and leave the loop when we have decayed to zero! We generate samples that are too long I reckon 
-- Super number spinner
 - Make this into a proper TK control stick it on cpan one day
 - Randomise button
 - Mutate button
@@ -65,3 +60,51 @@ xvfb-run -a prove -Ilib t/super_spinbox_tk.t  # Linux/headless; use prove direct
 places, bounds and change callback. `lib/SuperSpinbox/Value.pm` holds the testable
 fixed-point stepping model. The full synthesizer still requires its original
 Windows audio/MIDI/Moose dependencies; the demo does not play audio.
+
+
+## Playback chord memory
+
+Turn on **Chord memory** and choose Major, Minor, Major 7th, Minor 7th,
+Dominant 7th, Sus2, Sus4 or Octave. Each keyboard note triggers the already-rendered
+sample on independent playback channels: Major 7th uses 0, 4, 7 and 11 semitones.
+Changing this setting does **not** regenerate or rewrite the patch. Release the
+key to stop all its voices; changing presets while held does not change release
+behaviour. The on-screen piano buttons play one-shot chords.
+
+The older sample-generation **Baked chord (legacy)** option remains available.
+The GUI's default bass patch now starts with that option off, so playback chord
+memory builds harmony from a single-note sample rather than stacking chords.
+Other patches that already contain a chord will still transpose that whole chord.
+
+Active voices get separate slots, growing as needed rather than wrapping over a
+held note. Completed/released slots are reused. This is not literally unlimited
+hardware polyphony: the Windows audio driver may impose its own device limits.
+A partial chord failure releases the voices already started.
+
+## Mini sequencer
+
+**Randomise & Play** generates and immediately loops a new 16-step phrase.
+Keep clicking until you hear something you like; **Play** repeats the current
+phrase, **Stop** silences it. Tempo is 40–240 BPM with sixteenth-note steps.
+Choose a major, minor or minor-pentatonic scale for the next randomisation.
+The numbered buttons show notes/rests; click to mute or restore a step.
+The GUI's selected keyboard octave determines the root C. Chord memory applies
+to the sequencer too, using the current patch without regenerating it.
+
+This is a small 303-inspired idea generator, not a 303 emulation: no accent,
+slide, filter model, sequence save/load or audio export in this prototype.
+A silent portable UI demo prints generated frequencies instead of playing audio:
+
+```sh
+perl examples/mini_sequencer.pl
+```
+
+All automated tests use real Tk widgets (under Xvfb on CI) and a fake WaveOut
+backend for playback; they never access audio hardware. They cover stepping,
+carry/borrow, typed/external edits, chord pitches, held-key release, device errors,
+random-pattern bounds and the sequencer clock/stop/restart lifecycle. Windows
+sound output and full synth GUI playback still need an on-device listening test.
+
+```sh
+xvfb-run -a prove -I. -Ilib t/*.t
+```
