@@ -36,6 +36,7 @@ my $constructor=MainWindow->can('new');
     my ($button)=grep{$_->isa('Tk::Button') && eval{($_->cget('-text') // '') eq $text}}@widgets;
     ok($button,"$text control integrated into full GUI");
     die "Missing $text" unless $button;
+    ok($button->ismapped && $button->rooty >= $window->rooty && $button->rooty+$button->height <= $window->rooty+$window->height, "$text visible without resizing or a programmatic click");
     $button->invoke; $window->update;
    }
    cmp_ok($Win32::Sound::WaveOut::writes,'>=',3,'New, Variation and Undo each reach actual playback dispatch');

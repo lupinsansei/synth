@@ -118,7 +118,7 @@ $lbox->bind('<<ListboxSelect>>' => \&changePatch );
 #
 # ($row,$col) = $table->Posn($widget);
 
-my $table = $mw->Table(-rows => 10, -columns => 11, -fixedrows => 1);
+my $table = $mw->Table(-rows => 10, -columns => 11, -fixedrows => 1, -scrollbars => 'se');
 
 my $dialog = $mw->Dialog(-text => 'Save File?', -bitmap => 'question', -title => 'Save File Dialog', -default_button => 'Yes', -buttons => [qw/Yes No Cancel/]);
 
@@ -127,7 +127,7 @@ my @voices = qw();
 # we want to model a single patch in a patch panel and that has multiple voices
 # we can change the patch later by selecting one from a list box
 
-$table->pack;
+
 
 my $selected_octave = 3;
 my $sequencer = MiniSequencer::Tk->new(parent => $mw,
@@ -149,6 +149,8 @@ $explorer->widget->pack(-fill => 'x', -pady => 6);
 
 
 build_keyboard($mw);
+# Reserve space for transport/explorer first; scroll the larger voice table.
+$table->pack(-fill => 'both', -expand => 1);
 
 $mw->bind('<KeyPress>' => \&print_keysym);
 $mw->bind('<KeyRelease>' => sub { my $widget = shift; $synth->stop_patch($widget->XEvent->K); });
