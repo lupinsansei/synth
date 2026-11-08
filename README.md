@@ -3,14 +3,6 @@ Perl/TK synthesizer
 
 *To Do*
 
-- serialise settings (patches, synth etc) to json
-    - try moosex-storage
-        - seems to blow up on Patches (actually nested objects)
-            - looks like storagex can't go recursive?
-                - MooseX::Role::JSONObject didn't work
-                    - Irole my own saving system. for each object have a save method that returns up json or something?
-                - JSON::Syck; worked, though it includes all the binary data of the sample too. Who cares if it works! https://stackoverflow.com/a/3408107/74585
-                
 - Speed it all up
 - Add a button to the menu to restart
 - Start/fork another instance and stop this one?
@@ -132,7 +124,7 @@ remains gentle. The sequencer stops before changing a sound, and auditions use t
 existing playback path (including chord memory when enabled).
 
 **Like this is not a disk save.** The keeper and Undo history are session-only;
-use the existing Save action to persist the current patch. Audio buffers and Tk
+use File → Save to persist the patch bank. Audio buffers and Tk
 objects are not copied into Undo history. A generation/render/playback exception
 restores the previous sound and cache without consuming history. The old raw
 `Patch::mutate` API remains available to existing callers.
@@ -148,3 +140,30 @@ A silent demo renders waveforms and prints their sizes without opening audio:
 ```sh
 perl examples/fm_patch_explorer.pl
 ```
+
+
+## Saving and loading patch banks
+
+- **File → Save / Save As…** saves all patches in a versioned `.synth.json` bank.
+- **File → Open…** restores the bank and selected patch. Ctrl+S and Ctrl+O work too.
+- Voices, nested FM modulators, envelopes and playback chord-memory settings are
+  included. Rendered audio, channels, device handles and GUI objects are not.
+- Loading rebuilds real Patch/Voice objects and renders the selected sound; it
+  does not start playback. A failed parse or selected-sound render keeps the
+  current bank. Saving writes a temporary file beside the destination before
+  replacement; an unsuccessful write/replacement retains the previous file.
+- WAV-based voices reference files, not embedded audio. Paths are relative to
+  the bank where possible: keep those samples alongside it when moving banks.
+  Missing WAVs are not recreated; a missing sample prevents rendering its patch.
+- Sequencer patterns, explorer keeper/Undo history and other session state are
+  not saved. There is no automatic startup load or exit save: save before closing.
+
+**Older dumps:** File → Import legacy JSON… uses the optional `JSON::Syck`
+module to recover settings from the old whole-object format, ignoring cached
+binary audio and runtime state. The repository's historical `patches.json` was
+checked with this importer. Import forces Save As, preserving the original dump.
+Valid standard-JSON old dumps can also be opened with the normal reader.
+
+New banks use core `JSON::PP`; XML or object-serialisation libraries are not
+needed. Local `*.synth.json` banks are git-ignored. Do not commit personal sample
+assets or private paths to the public repository.

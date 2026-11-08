@@ -4,6 +4,7 @@ use lib "$FindBin::Bin", "$FindBin::Bin/lib";
 use SuperSpinbox;
 use MiniSequencer::Tk;
 use FMPatchExplorer::Tk;
+use PatchBank::Tk;
 use ChordMemory qw(chord_names);
 use warnings;
 use Data::Dumper;
@@ -19,12 +20,6 @@ use Patch;
 use Voice;
 use MIDI::Pitch qw(name2freq pitch2name name2pitch);
 use Win32::Sound;
-
-# experimented to try and get export to json to work
-#use JSON;
-#use JSON::Any;
-#use File::Slurp;
-use JSON::Syck;		# I think only this one worked
 
 use feature qw(switch);
 no warnings 'experimental';
@@ -81,8 +76,8 @@ $mw->Label(-text => 'Synth Gui')->pack;
 
 # Playback-only harmony: never calls OnPatchChange or regenerates a sample.
 my $harmony = $mw->Frame->pack(-fill => 'x');
-$harmony->Checkbutton(-text => 'Chord memory', -variable => \$synth->{chord_memory})->pack(-side => 'left');
-$harmony->Optionmenu(-variable => \$synth->{chord_type}, -options => chord_names())->pack(-side => 'left');
+my $chord_toggle = $harmony->Checkbutton(-text => 'Chord memory', -variable => \$synth->{chord_memory})->pack(-side => 'left');
+my $chord_selector = $harmony->Optionmenu(-variable => \$synth->{chord_type}, -options => chord_names())->pack(-side => 'left');
 
 
 # $mw->Button(
@@ -204,54 +199,49 @@ sub print_keysym {
 	}
 }
 
-# menu - https://docstore.mik.ua/orelly/perl3/tk/ch12_02.htm
+# Settings-only bank files: no device handles, rendered buffers or GUI objects.
+my $banks = PatchBank::Tk->new(parent => $mw,
+    capture => sub { return ($synth, $lbox->get($lbox->curselection->[0])); },
+    apply => sub {
+        my $bank = shift;
+        my $candidate = Synth->new(Patches => $bank->{patches}, %{$bank->{settings}});
+        # Validate/render before touching the active synth. Missing WAVs or render
+        # errors leave the old bank and its controls available.
+        $candidate->render_patch_as_middle_c($candidate->Patches->{$bank->{selected_patch}});
+        $sequencer->stop;
+        $synth->stop_patch($_) for keys %{$synth->Keys};
+        my $previous = $synth;
+        my $previous_name = $lbox->get($lbox->curselection->[0]);
+        my $ok = eval {
+            $synth = $candidate;
+            $lbox->delete(0, 'end'); $lbox->insert('end', sort keys %{$synth->Patches});
+            $chord_toggle->configure(-variable => \$synth->{chord_memory});
+            $chord_selector->configure(-variable => \$synth->{chord_type});
+            setSelectedPatchByName($bank->{selected_patch}, 1);
+            1;
+        };
+        unless ($ok) {
+            my $error = $@; $synth = $previous;
+            $lbox->delete(0, 'end'); $lbox->insert('end', sort keys %{$synth->Patches});
+            $chord_toggle->configure(-variable => \$synth->{chord_memory});
+            $chord_selector->configure(-variable => \$synth->{chord_type});
+            $mw->Unbusy; setSelectedPatchByName($previous_name, 1);
+            die $error;
+        }
+        # Undo/keeper state from another bank must not leak into the loaded one.
+        $explorer->{manager} = FMPatchExplorer->new;
+        $explorer->{buttons}{undo}->configure(-state=>'disabled');
+        $explorer->{status} = 'Patch bank loaded. Like this can set a new variation starting point.';
+    });
 $mw->configure(-menu => my $menubar = $mw->Menu);
-my $file = $menubar->cascade(-label => '~File'); 
-#my $edit = $menubar->cascade(-label => '~Edit'); 
-#my $help = $menubar->cascade(-label => '~Help');
-
-# my $new = $file->cascade(
-#     -label       => 'New',
-#     -accelerator => 'Ctrl-n',
-#     -underline   => 0,
-# );
-# $file->separator;
-# $file->command(
-#     -label       => 'Open',
-#     -accelerator => 'Ctrl-o',
-#     -underline   => 0,
-# );
-# $file->separator;
-$file->command(
-    -label       => 'Save',
-    -accelerator => 'Ctrl-s',
-    -underline   => 0,
-	-command => sub {
-		# save file to json
-
-		# https://stackoverflow.com/a/3408107/74585
-		JSON::Syck::DumpFile("patches.json", $synth);
-	}
-);
-# $file->command(
-#     -label       => 'Save As ...',
-#     -accelerator => 'Ctrl-a',
-#     -underline   => 1,
-# );
-# $file->separator;
-# $file->command(
-#     -label       => "Close",
-#     -accelerator => 'Ctrl-w',
-#     -underline   => 0,
-#     -command     => \&exit,
-# );
-# $file->separator;
-# $file->command(
-#     -label       => "Quit",
-#     -accelerator => 'Ctrl-q',
-#     -underline   => 0,
-#     -command     => \&exit,
-# );
+my $file = $menubar->cascade(-label => '~File');
+$file->command(-label=>'Open...', -command=>sub{$banks->open});
+$file->command(-label=>'Save', -command=>sub{$banks->save});
+$file->command(-label=>'Save As...', -command=>sub{$banks->save_as});
+$file->separator;
+$file->command(-label=>'Import legacy JSON...', -command=>sub{$banks->open(legacy=>1)});
+$mw->bind('<Control-o>' => sub{$banks->open; Tk->break});
+$mw->bind('<Control-s>' => sub{$banks->save; Tk->break});
 
 CenterWindow($mw, 1200, 650);
 
@@ -265,7 +255,7 @@ sub getSelectedPatch {
 
 sub setSelectedPatchByName
 {
-	my($name) = @_;
+	my($name, $skip_render) = @_;
 	
 	my @elements = $lbox->get(0, 'end');
 	for(my $i=0; $i<@elements; $i++ ) {
@@ -273,7 +263,7 @@ sub setSelectedPatchByName
 			$lbox->selectionSet($i);
 		}
 	}
-	changePatch();
+	changePatch($skip_render ? 'no-render' : ());
 }
 
 sub changePatch {
