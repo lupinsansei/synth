@@ -130,7 +130,7 @@ sub render {
 sub make_sine {
 	my( $samplerate, $bits, $length, $frequency, $left_volume, $right_volume, $freq_decay, $modulator_wave_ref, $volume_decay ) = @_;
 
-	my $samples = $samplerate * $length;
+	my $samples = int($samplerate * $length);
 
 	my $scale = (2**$bits)/2;
 
@@ -192,7 +192,7 @@ sub make_noise {
 	my @data_l = ();
 	my @data_r = ();
 
-	my $samples = $samplerate * $length;
+	my $samples = int($samplerate * $length);
 
 	my $scale = (2**$bits)/2;
 
@@ -258,7 +258,7 @@ sub make_wav_file {
 	if( $length == 0 ) {
 		$samples = $read->length_samples();
 	} else {
-		$samples = $samplerate * $length;
+		$samples = int($samplerate * $length);
 	}
 
 	#print "Sample length = $length\n";

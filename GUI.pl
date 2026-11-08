@@ -3,6 +3,7 @@ use FindBin;
 use lib "$FindBin::Bin", "$FindBin::Bin/lib";
 use SuperSpinbox;
 use MiniSequencer::Tk;
+use FMPatchExplorer::Tk;
 use ChordMemory qw(chord_names);
 use warnings;
 use Data::Dumper;
@@ -134,6 +135,18 @@ my $sequencer = MiniSequencer::Tk->new(parent => $mw,
     play => sub { $synth->play_patch(getSelectedPatch(), 'mini-sequencer', $_[0]); },
     stop => sub { $synth->stop_patch('mini-sequencer'); });
 $sequencer->widget->pack(-fill => 'x', -pady => 6);
+my $explorer = FMPatchExplorer::Tk->new(parent => $mw,
+    patch => sub { getSelectedPatch() },
+    before => sub { $sequencer->stop },
+    context => sub { {samplerate=>$synth->samplerate, bits=>$synth->bits} },
+    preview => sub {
+        my $patch = shift;
+        changePatch();
+        $synth->play_patch($patch, undef, name2freq('c' . $selected_octave));
+    },
+    recover => sub { $mw->Unbusy; changePatch('no-render'); });
+$explorer->widget->pack(-fill => 'x', -pady => 6);
+
 
 build_keyboard($mw);
 
@@ -262,6 +275,7 @@ sub setSelectedPatchByName
 }
 
 sub changePatch {
+    my $skip_render = defined $_[0] && !ref($_[0]) && $_[0] eq 'no-render';
 
 	# called when we change the patch in the listbox on the side
 
@@ -283,10 +297,6 @@ sub changePatch {
 		$table->Checkbutton(-variable => \$selected_patch->{chord}, -command => sub{ OnPatchChange($selected_patch) } )
 	);
 
-		# add a mutate button
-	$table->put($row_index, 2,
-		$table->Button(-text => "Mutate", -command => sub { $selected_patch->mutate(); OnPatchChange($selected_patch) } )
-	);
 
 	$row_index++;
 
@@ -308,7 +318,7 @@ sub changePatch {
 	$mw->Busy;
 	$mw->update;	
 
-	$synth->render_patch_as_middle_c($selected_patch);
+	$synth->render_patch_as_middle_c($selected_patch) unless $skip_render;
 
 	$mw->Unbusy;
 	$mw->update;

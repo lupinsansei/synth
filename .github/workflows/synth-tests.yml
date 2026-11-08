@@ -8,6 +8,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install headless Tk test dependencies
-        run: sudo apt-get update && sudo apt-get install -y perl-tk xvfb libmoose-perl
+        run: sudo apt-get update && sudo apt-get install -y perl-tk xvfb libmoose-perl libaudio-wav-perl
       - name: Test models and real Tk widgets without audio
         run: xvfb-run -a prove -I. -Ilib t/*.t

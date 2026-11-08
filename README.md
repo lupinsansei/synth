@@ -108,3 +108,43 @@ sound output and full synth GUI playback still need an on-device listening test.
 ```sh
 xvfb-run -a prove -I. -Ilib t/*.t
 ```
+
+## Musical FM explorer
+
+The GUI now offers a musically biased alternative to the old independent-knob
+**Mutate** button:
+
+1. Choose **Bass**, **Pluck**, **Bell**, **Soft keys** or **Texture**.
+2. Set **Wildness** (0–100), then click **New sound** to generate and audition.
+3. Click **Like this** to make the current sound the starting point for variations.
+4. Click **Variation** to explore nearby brightness/envelopes without changing
+   its frequency ratios or operator structure. Repeated variations start from
+   the keeper, not from one another, so they do not wander indefinitely.
+5. **Undo** restores the previous sound (up to 32 changes per patch this session).
+
+New sounds prefer family-appropriate ratios and linked amplitude/modulation
+shapes. Bass/pluck/keys favour harmonic relationships; bells/textures deliberately
+include inharmonic ratios. Higher Wildness permits more detuning and unusual
+ratios. The renderer's PCM modulator levels are derived from frequency deviation
+rather than arbitrary volume percentages. Carrier pitch stays stable and generated
+levels/durations are bounded. Wildness/family affect **New sound**; **Variation**
+remains gentle. The sequencer stops before changing a sound, and auditions use the
+existing playback path (including chord memory when enabled).
+
+**Like this is not a disk save.** The keeper and Undo history are session-only;
+use the existing Save action to persist the current patch. Audio buffers and Tk
+objects are not copied into Undo history. A generation/render/playback exception
+restores the previous sound and cache without consuming history. The old raw
+`Patch::mutate` API remains available to existing callers.
+
+The generator is intentionally biased, not an automatic judge of musical quality.
+Headless tests render every family at low/high Wildness and check finite,
+non-silent, unclipped samples and silent tails; Windows listening tests are still
+needed to tune the results. Spectral headroom is a reference-note heuristic, not
+an anti-aliasing filter or a guarantee for every transposition.
+
+A silent demo renders waveforms and prints their sizes without opening audio:
+
+```sh
+perl examples/fm_patch_explorer.pl
+```
