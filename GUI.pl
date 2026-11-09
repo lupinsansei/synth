@@ -73,38 +73,31 @@ my $mw = MainWindow->new;
 
 $mw->Label(-text => 'Synth Gui')->pack;
 
+# Create a frame to hold the top section (patches and waveform side by side)
+my $top_frame = $mw->Frame()->pack(-side => 'top', -fill => 'x', -padx => 10, -pady => 5);
+
+# Left side - Patch selector
+my $left_frame = $top_frame->Frame()->pack(-side => 'left', -anchor => 'nw');
+$left_frame->Label(-text => 'Patches')->pack(-anchor => 'w');
+my $lbox = $left_frame->Listbox(-height => 8)->pack(-anchor => 'nw', -pady => 5);
+$lbox->insert('end', keys %{$synth->{Patches}} );
+$lbox->bind('<<ListboxSelect>>' => \&changePatch );
+
+# Right side - Waveform visualization (expand to fill remaining space)
+my $waveform_canvas = $top_frame->Canvas(-height => 150, -bg => 'black', -relief => 'sunken', -bd => 2)->pack(-side => 'right', -fill => 'x', -expand => 1, -padx => 10);
+
+# Add a refresh button next to the waveform
+my $refresh_btn = $top_frame->Button(-text => "Refresh Waveform", -command => sub {
+	my $selected_patch = getSelectedPatch();
+	if ($selected_patch && $selected_patch->rendered_sample) {
+		draw_waveform($waveform_canvas, $selected_patch->rendered_sample);
+	}
+})->pack(-side => 'right', -padx => 5);
+
 # $mw->Button(
 #     -text    => 'Quit',
 #     -command => sub { exit },
 # )->pack;
-
-$mw->Label(-text => 'Patches')->pack(-side => 'left', -anchor => 'ne', -padx => 8);
-
-my $lbox = $mw->Listbox()->pack(-side => 'left', -anchor => 'ne', -padx => 8);
-$lbox->insert('end', keys %{$synth->{Patches}} );
-$lbox->bind('<<ListboxSelect>>' => \&changePatch );
-
-
-# $table = $parent->Table(-rows => number,
-#                         -columns => number,
-#                         -scrollbars => anchor,
-#                         -fixedrows => number,
-#                         -fixedcolumns => number,
-#                         -takefocus => boolean);
-#
-# $widget = $table->Button(...);
-#
-# $old = $table->put($row,$col,$widget);
-# $old = $table->put($row,$col,"Text");  # simple Label
-# $widget = $table->get($row,$col);
-#
-# $cols = $table->totalColumns;
-# $rows = $table->totalRows;
-#
-# $table->see($widget);
-# $table->see($row,$col);
-#
-# ($row,$col) = $table->Posn($widget);
 
 my $table = $mw->Table(-rows => 10, -columns => 11, -fixedrows => 1);
 
@@ -116,9 +109,6 @@ my @voices = qw();
 # we can change the patch later by selecting one from a list box
 
 $table->pack;
-
-# Add waveform visualization canvas
-my $waveform_canvas = $mw->Canvas(-width => 600, -height => 150, -bg => 'black', -relief => 'sunken', -bd => 2)->pack(-side => 'top', -padx => 10, -pady => 5);
 
 my $selected_octave = 3;
 build_keyboard($mw);
@@ -540,8 +530,11 @@ sub draw_waveform {
 	# Clear the canvas
 	$canvas->delete('all');
 	
-	my $canvas_width = $canvas->cget(-width);
-	my $canvas_height = $canvas->cget(-height);
+	# Force canvas to update its dimensions  
+	$canvas->update;
+	my $canvas_width = $canvas->width;  # Use actual allocated width
+	my $canvas_height = $canvas->height; # Use actual allocated height
+	
 	my $center_y = $canvas_height / 2;
 	
 	# Find the last non-zero sample to trim silence
@@ -557,8 +550,8 @@ sub draw_waveform {
 	
 	# Use only the non-silent portion
 	my $active_sample_count = $last_nonzero + 1;
-	my $display_samples = $canvas_width;
-	my $step = int($active_sample_count / $display_samples) || 1;
+	my $display_samples = $canvas_width;  # Use the full canvas width
+	my $step = $active_sample_count / $display_samples;  # Allow fractional steps for better resolution
 	
 	# Draw background gradient effect
 	for my $y (0..$canvas_height) {
@@ -591,8 +584,8 @@ sub draw_waveform {
 	
 	# Draw the waveform
 	my @points = ();
-	for my $x (0..$display_samples-1) {
-		my $sample_index = $x * $step;
+	for my $x (0..$canvas_width-1) {  # Use full canvas width
+		my $sample_index = int($x * $step);
 		last if $sample_index >= $active_sample_count;
 		
 		my $amplitude = $sample->[0]->[$sample_index];
