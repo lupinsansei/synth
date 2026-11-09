@@ -116,8 +116,8 @@ sub render {
 				$left_volume * $self->volume_multiplier,
 				$right_volume * $self->volume_multiplier,
 				$self->freq_decay,
-				$self->volume_decay,
 				$modulator_wave_ref,
+				$self->volume_decay,
 				$self->file
 			);
 		}
