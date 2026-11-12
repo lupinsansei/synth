@@ -59,7 +59,7 @@ sub render {
 		my @waves = ();
 		foreach my $voice (@{$self->voices}) {
 			my $wave = $voice->render( $samplerate, $bits, $self->length, $frequency, 1, 1 );
-			$wave = envelope( $wave, $self->attack, $self->decay );
+			$wave = envelope( $wave, $self->attack, $self->decay, $samplerate );
 			push( @waves, $wave );
 		}
 
@@ -68,7 +68,7 @@ sub render {
 
 		# single voice
 		my $wave = $self->voices->[0]->render( $samplerate, $bits, $self->length, $frequency, 1, 1 );
-		$wave = envelope( $wave, $self->attack, $self->decay );
+		$wave = envelope( $wave, $self->attack, $self->decay, $samplerate );
 		return $wave;
 	}
 }
@@ -113,10 +113,12 @@ sub mix_samples {
 
 sub envelope {
 
-	my( $sample, $attack, $decay ) = @_;
+	my( $sample, $attack, $decay, $samplerate ) = @_;
+	# Preserve legacy direct callers; render() always supplies its actual rate.
+	$samplerate //= 44100;
 
-	my $attack_end = $attack * 44100;
-	my $decay_end = $attack_end + $decay * 44100;
+	my $attack_end = $attack * $samplerate;
+	my $decay_end = $attack_end + $decay * $samplerate;
 	my $decay_length = $decay_end-$attack_end;
 
 	my $scale = 0;
