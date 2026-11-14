@@ -22,16 +22,20 @@ use Tk;
 use File::Temp qw(tempdir);
 use PatchBank::Tk;
 use PatchBank;
+use WavExport::Tk;
 my $dir=tempdir(CLEANUP=>1);
 my $bank_path="$dir/round-trip.synth.json";
 my ($banks,@errors,$open_path);
 $open_path=$bank_path;
 my $bank_constructor=PatchBank::Tk->can('new');
 my $captured;
+my $exporter;
+my $export_constructor=WavExport::Tk->can('new');
 my $constructor=MainWindow->can('new');
 {
  no warnings qw(redefine once);
  local *PatchBank::Tk::new=sub {my($class,%args)=@_;$banks=$bank_constructor->($class,%args,choose_save=>sub{$bank_path},choose_open=>sub{$open_path},error=>sub{push @errors,$_[0]});return $banks};
+ local *WavExport::Tk::new=sub {my($class,%args)=@_;$exporter=$export_constructor->($class,%args,choose_save=>sub{"$dir/gui.wav"},error=>sub{push @errors,$_[0]});return $exporter};
  local *MainWindow::new=sub {$captured=$constructor->(@_);return $captured};
  local *Tk::MainLoop=sub {
    my $window=$captured;
@@ -63,6 +67,19 @@ my $constructor=MainWindow->can('new');
     my $before=$restored->chord_memory;$chord_button->invoke;
     is($restored->chord_memory,!$before?1:0,'chord control rebinds to loaded synth');
    }
+   my $writes_before=$Win32::Sound::WaveOut::writes;
+   my $menubar=$window->cget('-menu');
+   my ($file_index)=grep { $menubar->type($_) eq 'cascade' } 0..$menubar->index('end');
+   my $filemenu=$menubar->entrycget($file_index,'-menu');
+   my ($export_index)=grep { eval { $filemenu->entrycget($_,'-label') eq 'Export sound as WAV...' } } 0..$filemenu->index('end');
+   ok(defined $export_index,'File menu offers WAV export');
+   ok($filemenu->invoke($export_index),'full GUI menu exports selected sound after bank load');
+   open my $wav,'<:raw',"$dir/gui.wav" or die $!;
+   local $/;my $wav_bytes=<$wav>;close $wav;
+   is(substr($wav_bytes,0,4),'RIFF','GUI export has WAV header');
+   is(substr($wav_bytes,44),$restored->Patches->{$selection}->rendered_wave,'export uses loaded selected patch, not old bank');
+   is($Win32::Sound::WaveOut::writes,$writes_before,'GUI export never starts playback');
+   is($banks->current_file,$bank_path,'WAV export does not change patch-bank Save target');
    # A missing selected sample must fail before changing the active bank.
    my $bad=Synth->new(Patches=>{missing=>Patch->new(name=>'Missing sample',voices=>[Voice->new(wave=>'file',file=>"$dir/missing.wav")])});
    $open_path="$dir/missing.synth.json";PatchBank->save_file($open_path,$bad);

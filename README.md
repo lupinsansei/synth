@@ -167,3 +167,17 @@ Valid standard-JSON old dumps can also be opened with the normal reader.
 New banks use core `JSON::PP`; XML or object-serialisation libraries are not
 needed. Local `*.synth.json` banks are git-ignored. Do not commit personal sample
 assets or private paths to the public repository.
+
+
+## Exporting a sound
+
+**File → Export sound as WAV…** renders the selected patch at its reference
+note (C3) and saves a standard 16-bit stereo PCM WAV at the bank's sample rate.
+Use it in a DAW or sampler; transpose it there from the reference note.
+This is separate from saving an editable patch bank. It does not record the
+sequencer or add playback chord memory. A legacy baked chord is part of the
+patch itself and remains included, just as in its rendered sound.
+Export does not play audio. It writes a temporary file beside the destination
+and replaces the destination only after a successful write; failures keep an
+existing file. No non-16-bit or non-stereo format is silently relabelled.
+Keep personal exported audio out of this public repository.

@@ -59,3 +59,7 @@ _Inline/config-x86_64-linux-gnu-thread-multi-5.038002
 # Local user patch banks and temporary atomic-save files (never public fixtures).
 *.synth.json
 .synth-bank-*
+
+# Local rendered exports (do not publish personal audio).
+/sound.wav
+.synth-wav-*
