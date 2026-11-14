@@ -67,6 +67,17 @@ my $constructor=MainWindow->can('new');
     my $before=$restored->chord_memory;$chord_button->invoke;
     is($restored->chord_memory,!$before?1:0,'chord control rebinds to loaded synth');
    }
+   my ($mode_control)=grep{$_->isa('Tk::Optionmenu') && eval{($_->cget('-text')//'') eq 'Together'}}@widgets;
+   ok($mode_control,'chord playback selector integrated');
+   $mode_control->cget('-menu')->invoke('Arpeggio');
+   is($restored->chord_mode,'Arpeggio','mode selector rebinds after bank load');
+   my ($arp_step)=grep{$_->isa('Tk::Spinbox') && eval{$_->cget('-to')==1000}}@widgets;
+   $arp_step->delete(0,'end');$arp_step->insert(0,'180');
+   is($restored->arpeggio_ms,180,'arpeggio timing control rebinds after load');
+   for my $label ('Octave -','Octave +') {
+    my ($control)=grep{$_->isa('Tk::Button') && eval{($_->cget('-text')//'') eq $label}}@widgets;
+    ok($control && $control->ismapped,"$label visible in full GUI");
+   }
    my $writes_before=$Win32::Sound::WaveOut::writes;
    my $menubar=$window->cget('-menu');
    my ($file_index)=grep { $menubar->type($_) eq 'cascade' } 0..$menubar->index('end');

@@ -27,6 +27,8 @@ package Synth;
 
     has 'chord_memory' => (is => 'rw', isa => 'Bool', default => 0);
     has 'chord_type' => (is => 'rw', isa => 'Str', default => 'Major 7th');
+    has 'chord_mode' => (is => 'rw', isa => 'Str', default => 'Together');
+    has 'arpeggio_ms' => (is => 'rw', isa => 'Int', default => 120);
 
 	has 'Keys'				=> ( is => 'rw', isa => 'HashRef', default => sub { {} } );
 
@@ -86,11 +88,18 @@ package Synth;
         my ($self, $patch, $vkcode, $frequency, $offset, $length) = @_;
         return if defined $vkcode && exists $self->Keys->{$vkcode}; # held-key repeat
         my $frequencies = chord_frequencies($frequency, $self->chord_memory, $self->chord_type);
-        my @handles;
+        die 'Choose Together or Arpeggio' unless $self->chord_mode eq 'Together' || $self->chord_mode eq 'Arpeggio';
+        die 'Arpeggio step must be 40..1000 ms' unless $self->arpeggio_ms =~ /\A[0-9]+\z/ && $self->arpeggio_ms >= 40 && $self->arpeggio_ms <= 1000;
+        my (@handles, %reserved);
         my $ok = eval {
-            for my $note (@$frequencies) {
-                push @handles, $self->_play_single($patch, $note, $offset, $length);
+            for my $i (0..$#$frequencies) {
+                my $delay = $self->chord_mode eq 'Arpeggio' ? $i * $self->arpeggio_ms : 0;
+                push @handles, $self->_prepare_voice($patch, $frequencies->[$i], $offset, $length, $delay, \%reserved);
             }
+            # Opening a device and loading a long buffer can be slow. Prepare
+            # EVERY voice first, then submit asynchronous writes back-to-back.
+            # Arpeggio offsets live in the buffers, not blocking sleeps/Tk timers.
+            $_->Write() for @handles;
             1;
         };
         unless ($ok) {
@@ -104,21 +113,23 @@ package Synth;
         return \@handles;
     }
 
-    sub _play_single {
-        my ($self, $patch, $frequency, $offset, $length) = @_;
+    sub _prepare_voice {
+        my ($self, $patch, $frequency, $offset, $length, $delay_ms, $reserved) = @_;
         my $index = 0;
-        $index++ while $index < @{$self->Channels} && $self->Channels->[$index] && !$self->Channels->[$index]->Status();
+        $index++ while $reserved->{$index} || ($index < @{$self->Channels} && $self->Channels->[$index] && !$self->Channels->[$index]->Status());
         # Grow as necessary instead of wrapping over active chord notes.
         $self->ChannelIndex($index);
         my $rate = ($self->samplerate / $patch->rendered_frequency) * $frequency;
         my $wave = Win32::Sound::WaveOut->new($rate, $self->bits, $self->channels);
-        if (defined $offset || defined $length) {
-            $wave->Load(sample2wav($patch->rendered_sample, $offset, $length));
-        } else {
-            $wave->Load($patch->{rendered_wave});
-        }
-        $wave->Write();
+        my $pcm = defined($offset) || defined($length)
+            ? sample2wav($patch->rendered_sample, $offset, $length) : $patch->{rendered_wave};
+        # Account for EACH voice's playback rate, so a higher chord tone does
+        # not shorten the intended time between arpeggio notes.
+        my $silent_frames = int(int($rate) * $delay_ms / 1000 + 0.5);
+        $pcm = ("\0" x ($silent_frames * 4)) . $pcm if $silent_frames;
+        $wave->Load($pcm);
         $self->Channels->[$index] = $wave;
+        $reserved->{$index} = 1;
         return $wave;
     }
 

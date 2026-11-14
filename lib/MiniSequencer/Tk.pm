@@ -7,7 +7,8 @@ use MiniSequencer;
 sub new {
     my ($class,%args)=@_;
     die 'parent, play and stop callbacks required' unless $args{parent} && ref($args{play}) eq 'CODE' && ref($args{stop}) eq 'CODE';
-    my $self=bless {model=>MiniSequencer->new(rng=>$args{rng}),play=>$args{play},stop=>$args{stop},root=>$args{root}||sub{48},tempo=>120,token=>0,running=>0,status=>'Stopped'},$class;
+    my $self=bless {model=>MiniSequencer->new(rng=>$args{rng}),play=>$args{play},stop=>$args{stop},octave=>$args{octave}//3,tempo=>120,token=>0,running=>0,status=>'Stopped'},$class;
+    die 'Octave must be 0..7' unless $self->{octave} =~ /\A[0-7]\z/;
     my $frame=$self->{widget}=$args{parent}->Frame(-relief=>'groove',-borderwidth=>2);
     $frame->Label(-text=>'Mini sequencer — find a pattern by ear')->pack;
     my $transport=$frame->Frame->pack;
@@ -16,6 +17,10 @@ sub new {
     $self->{stop_button}=$transport->Button(-text=>'Stop',-command=>sub{$self->stop})->pack(-side=>'left');
     $transport->Label(-text=>'BPM')->pack(-side=>'left');
     $self->{tempo_entry}=$transport->Spinbox(-from=>40,-to=>240,-width=>4,-textvariable=>\$self->{tempo})->pack(-side=>'left');
+    $transport->Label(-text=>'Octave')->pack(-side=>'left');
+    $self->{octave_down}=$transport->Button(-text=>'Octave -',-command=>sub{$self->shift_octave(-1)})->pack(-side=>'left');
+    $transport->Label(-textvariable=>\$self->{octave})->pack(-side=>'left');
+    $self->{octave_up}=$transport->Button(-text=>'Octave +',-command=>sub{$self->shift_octave(1)})->pack(-side=>'left');
     my $scale=$self->{model}->scale;
     $transport->Optionmenu(-variable=>\$scale,-options=>MiniSequencer->scales,-command=>sub{$self->{model}->scale($scale)})->pack(-side=>'left');
     my $steps=$frame->Frame->pack;
@@ -29,11 +34,22 @@ sub new {
     $frame->OnDestroy(sub{$self->{destroying}=1; $self->stop});
     $self->refresh; return $self;
 }
+sub _root { return ($_[0]{octave}+1)*12; }
+sub shift_octave {
+    my ($self,$direction)=@_;
+    my $next=$self->{octave}+$direction;
+    return if $next<0 || $next>7;
+    $self->{octave}=$next;
+    # Keep the pattern and transport; the next step uses the new register.
+    $self->refresh;
+}
 sub widget { return $_[0]{widget}; }
 sub refresh {
     my $self=shift;
+    $self->{octave_down}->configure(-state=>$self->{octave}==0?'disabled':'normal');
+    $self->{octave_up}->configure(-state=>$self->{octave}==7?'disabled':'normal');
     for my $i (0..15) {
-        $self->{buttons}[$i]->configure(-text=>($i+1).' '.$self->{model}->label($i,$self->{root}->()),
+        $self->{buttons}[$i]->configure(-text=>($i+1).' '.$self->{model}->label($i,$self->_root),
             -relief=>($self->{running} && defined $self->{current} && $self->{current}==$i ? 'sunken':'raised'));
     }
 }
@@ -59,7 +75,7 @@ sub _tick {
     return unless $self->{running} && $self->{token}==$token;
     my $ok=eval {
         $self->{stop}->();
-        my $frequency=$self->{model}->frequency($self->{current},$self->{root}->());
+        my $frequency=$self->{model}->frequency($self->{current},$self->_root);
         $self->{play}->($frequency) if defined $frequency;
         $self->{status}='Playing step '.($self->{current}+1).' / 16';
         $self->refresh;

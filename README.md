@@ -63,6 +63,16 @@ Changing this setting does **not** regenerate or rewrite the patch. Release the
 key to stop all its voices; changing presets while held does not change release
 behaviour. The on-screen piano buttons play one-shot chords.
 
+Choose **Together** (default) for all chord tones at once, or **Arpeggio** for
+one ascending pass through the chord. **Arpeggio step (ms)** sets the spacing
+from 40–1000 ms (default 120 ms); note tails can overlap. All voice buffers are
+prepared before asynchronous playback is submitted, so slow channel setup no
+longer sits between tone starts. Arpeggio timing is sample padding adjusted for
+each voice's playback rate, not GUI sleeps. Releasing a key also cancels tones
+whose silent lead-in has not finished. Changing mode affects the next key;
+mode and spacing save with the patch bank. Short sequencer gates can cut an
+arpeggio off before its higher tones; use Together or shorter spacing there.
+
 The older sample-generation **Baked chord (legacy)** option remains available.
 The GUI's default bass patch now starts with that option off, so playback chord
 memory builds harmony from a single-note sample rather than stacking chords.
@@ -80,7 +90,10 @@ Keep clicking until you hear something you like; **Play** repeats the current
 phrase, **Stop** silences it. Tempo is 40–240 BPM with sixteenth-note steps.
 Choose a major, minor or minor-pentatonic scale for the next randomisation.
 The numbered buttons show notes/rests; click to mute or restore a step.
-The GUI's selected keyboard octave determines the root C. Chord memory applies
+Use **Octave - / Octave +** to set the sequencer's root C from octave 0–7,
+independently of the computer keyboard. Changing octave updates the labels and
+the next playing step without changing the pattern or restarting its clock.
+This octave is session-only. Chord memory applies
 to the sequencer too, using the current patch without regenerating it.
 
 This is a small 303-inspired idea generator, not a 303 emulation: no accent,

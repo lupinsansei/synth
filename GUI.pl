@@ -79,6 +79,9 @@ $mw->Label(-text => 'Synth Gui')->pack;
 my $harmony = $mw->Frame->pack(-fill => 'x');
 my $chord_toggle = $harmony->Checkbutton(-text => 'Chord memory', -variable => \$synth->{chord_memory})->pack(-side => 'left');
 my $chord_selector = $harmony->Optionmenu(-variable => \$synth->{chord_type}, -options => chord_names())->pack(-side => 'left');
+my $chord_mode = $harmony->Optionmenu(-variable => \$synth->{chord_mode}, -options => ['Together','Arpeggio'])->pack(-side => 'left');
+$harmony->Label(-text=>'Arpeggio step (ms)')->pack(-side=>'left');
+my $arpeggio_step = $harmony->Spinbox(-from=>40,-to=>1000,-increment=>10,-width=>5,-textvariable=>\$synth->{arpeggio_ms})->pack(-side=>'left');
 
 
 # $mw->Button(
@@ -130,7 +133,7 @@ my $waveform_canvas = $mw->Canvas(-width => 600, -height => 150, -bg => 'black',
 
 my $selected_octave = 3;
 my $sequencer = MiniSequencer::Tk->new(parent => $mw,
-    root => sub { ($selected_octave + 1) * 12 },
+    octave => 3,
     play => sub { $synth->play_patch(getSelectedPatch(), 'mini-sequencer', $_[0]); },
     stop => sub { $synth->stop_patch('mini-sequencer'); });
 $sequencer->widget->pack(-fill => 'x', -pady => 6);
@@ -221,6 +224,8 @@ my $banks = PatchBank::Tk->new(parent => $mw,
             $lbox->delete(0, 'end'); $lbox->insert('end', sort keys %{$synth->Patches});
             $chord_toggle->configure(-variable => \$synth->{chord_memory});
             $chord_selector->configure(-variable => \$synth->{chord_type});
+            $chord_mode->configure(-variable => \$synth->{chord_mode});
+            $arpeggio_step->configure(-textvariable => \$synth->{arpeggio_ms});
             setSelectedPatchByName($bank->{selected_patch}, 1);
             1;
         };
@@ -229,6 +234,8 @@ my $banks = PatchBank::Tk->new(parent => $mw,
             $lbox->delete(0, 'end'); $lbox->insert('end', sort keys %{$synth->Patches});
             $chord_toggle->configure(-variable => \$synth->{chord_memory});
             $chord_selector->configure(-variable => \$synth->{chord_type});
+            $chord_mode->configure(-variable => \$synth->{chord_mode});
+            $arpeggio_step->configure(-textvariable => \$synth->{arpeggio_ms});
             $mw->Unbusy; setSelectedPatchByName($previous_name, 1);
             die $error;
         }

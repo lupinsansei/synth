@@ -60,14 +60,16 @@ sub _validate {
   die 'Patch needs 1..32 voices' unless ref($p->{voices}) eq 'ARRAY' && @{$p->{voices}} && @{$p->{voices}}<=32;
   $p{voices}=[map{_voice($_,0,\$count)}@{$p->{voices}}];$out{$name}=\%p;
  }
- my $settings=$data->{synth}//{};_keys($settings,[qw(samplerate bits channels chord_memory chord_type)],'synth settings');
- my %settings=(samplerate=>44100,bits=>16,channels=>2,chord_memory=>0,chord_type=>'Major 7th');
+ my $settings=$data->{synth}//{};_keys($settings,[qw(samplerate bits channels chord_memory chord_type chord_mode arpeggio_ms)],'synth settings');
+ my %settings=(samplerate=>44100,bits=>16,channels=>2,chord_memory=>0,chord_type=>'Major 7th',chord_mode=>'Together',arpeggio_ms=>120);
  $settings{samplerate}=_number($settings->{samplerate},8000,192000,'sample rate') if exists $settings->{samplerate};
  die 'Sample rate must be an integer' unless int($settings{samplerate})==$settings{samplerate};
  # Existing sample2wav packs stereo 16-bit PCM. Reject unsupported formats rather than silently misplaying them.
  die 'Only stereo 16-bit banks are supported' if (exists $settings->{bits} && $settings->{bits}!=16) || (exists $settings->{channels} && $settings->{channels}!=2);
  $settings{chord_memory}=_boolean($settings->{chord_memory},'chord memory') if exists $settings->{chord_memory};
  if(exists $settings->{chord_type}) {chord_intervals($settings->{chord_type});$settings{chord_type}=$settings->{chord_type};}
+ if(exists $settings->{chord_mode}) {die 'Invalid chord playback mode' unless !ref($settings->{chord_mode}) && ($settings->{chord_mode} eq 'Together' || $settings->{chord_mode} eq 'Arpeggio');$settings{chord_mode}=$settings->{chord_mode};}
+ if(exists $settings->{arpeggio_ms}) {$settings{arpeggio_ms}=_number($settings->{arpeggio_ms},40,1000,'arpeggio step');die 'Arpeggio step must be an integer' unless int($settings{arpeggio_ms})==$settings{arpeggio_ms};}
  my $selected=$data->{selected_patch}//(sort keys %out)[0];
  die 'Selected patch is missing' unless !ref($selected) && exists $out{$selected};
  return {format=>$FORMAT,version=>1,selected_patch=>$selected,synth=>\%settings,patches=>\%out};
@@ -78,7 +80,7 @@ sub capture {
   my $patch=$synth->Patches->{$name};$patches{$name}={%{$snapshot->snapshot($patch)},name=>$patch->name//$name};
  }
  return _validate({format=>$FORMAT,version=>1,selected_patch=>$args{selected_patch}//(sort keys %patches)[0],patches=>\%patches,
-   synth=>{map{$_=>$synth->$_}qw(samplerate bits channels chord_memory chord_type)}});
+   synth=>{map{$_=>$synth->$_}qw(samplerate bits channels chord_memory chord_type chord_mode arpeggio_ms)}});
 }
 sub _paths {
  my($doc,$callback)=@_;my $walk;$walk=sub{my $v=shift;$v->{file}=$callback->($v->{file}) if defined $v->{file} && length $v->{file};$walk->($_) for @{$v->{modulators}||[]};};
@@ -120,7 +122,7 @@ sub _legacy {
   };
   die 'Invalid legacy voices' unless ref($copy->{voices}) eq 'ARRAY';$copy->{voices}=[map{$walk->($_,0)}@{$copy->{voices}}];$patches{$name}=$copy;
  }
- return {format=>$FORMAT,version=>1,patches=>\%patches,synth=>{map{exists $old->{$_}?($_=>$old->{$_}):()}qw(samplerate bits channels chord_memory chord_type)}};
+ return {format=>$FORMAT,version=>1,patches=>\%patches,synth=>{map{exists $old->{$_}?($_=>$old->{$_}):()}qw(samplerate bits channels chord_memory chord_type chord_mode arpeggio_ms)}};
 }
 sub read_file {
  my($class,$path,%args)=@_;

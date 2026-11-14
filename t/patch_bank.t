@@ -19,7 +19,7 @@ my $path="$dir/test.synth.json";
 my $patch=Patch->new(name=>'Cloche café',length=>0.03,attack=>0.001,decay=>0.01,voices=>[
  Voice->new(freq_multiplier=>2,volume_multiplier=>0.2,volume_decay=>0.000001,delay=>0,
  modulators=>[Voice->new(freq_multiplier=>-0.5,volume_multiplier=>0.01,modulators=>[Voice->new(freq_multiplier=>3,volume_multiplier=>0.001)])])]);
-my $synth=Synth->new(Patches=>{bell=>$patch},chord_memory=>1,chord_type=>'Minor 7th');
+my $synth=Synth->new(Patches=>{bell=>$patch},chord_memory=>1,chord_type=>'Minor 7th',chord_mode=>'Arpeggio',arpeggio_ms=>180);
 $patch->rendered_wave("PRIVATE RUNTIME CACHE\x00\xff");
 $synth->Keys->{runtime}=[];
 ok(PatchBank->save_file($path,$synth,selected_patch=>'bell'),'bank saved');
@@ -32,6 +32,8 @@ is($loaded->{patches}{bell}->name,'Cloche café','UTF-8 name restored');
 is($loaded->{selected_patch},'bell','selected patch retained');
 is($loaded->{settings}{chord_type},'Minor 7th','chord preset retained');
 is($loaded->{settings}{chord_memory},1,'playback chord toggle retained');
+is($loaded->{settings}{chord_mode},'Arpeggio','playback mode retained');
+is($loaded->{settings}{arpeggio_ms},180,'arpeggio timing retained');
 my $restored=Synth->new(Patches=>$loaded->{patches},%{$loaded->{settings}});
 is_deeply(PatchBank->capture($restored),PatchBank->capture($synth),'all nested settings survive round trip');
 is_deeply($patch->render(130.81278265,44100,16),$loaded->{patches}{bell}->render(130.81278265,44100,16),'restored FM patch renders the same waveform');
@@ -56,12 +58,19 @@ for my $case (
  ['invalid waveform',sub{$_[0]{patches}{bell}{voices}[0]{wave}='execute'}],
  ['unbounded duration',sub{$_[0]{patches}{bell}{length}=9999}],
  ['nonfinite setting',sub{$_[0]{patches}{bell}{voices}[0]{freq_multiplier}='NaN'}],
+ ['invalid playback mode',sub{$_[0]{synth}{chord_mode}='other'}],
+ ['invalid arp timing',sub{$_[0]{synth}{arpeggio_ms}=0}],
+ ['fractional arp timing',sub{$_[0]{synth}{arpeggio_ms}=50.5}],
  ['invalid chord',sub{$_[0]{synth}{chord_type}='unknown'}],
  ['excessive nesting',sub{my $v=$_[0]{patches}{bell}{voices}[0];for(1..12){$v->{modulators}=[{wave=>'sine'}];$v=$v->{modulators}[0];}}]
 ) {
  my $copy=JSON::PP->new->decode(JSON::PP->new->encode($doc));$case->[1]->($copy);write_doc($copy);
  ok(!eval{PatchBank->read_file("$dir/invalid.json");1},"reject $case->[0]");
 }
+my $old_doc=JSON::PP->new->decode(JSON::PP->new->encode($doc));delete @{$old_doc->{synth}}{qw(chord_mode arpeggio_ms)};write_doc($old_doc);
+my $old_defaults=PatchBank->read_file("$dir/invalid.json");
+is($old_defaults->{settings}{chord_mode},'Together','older banks default to simultaneous playback');
+is($old_defaults->{settings}{arpeggio_ms},120,'older banks receive default arp step');
 open $fh,'>:raw',"$dir/invalid.json" or die $!;print {$fh} '{truncated';close $fh;
 ok(!eval{PatchBank->read_file("$dir/invalid.json");1},'truncated JSON rejected');
 # A failed replacement must not remove the destination or leave partial temp files.
