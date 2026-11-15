@@ -194,3 +194,12 @@ Export does not play audio. It writes a temporary file beside the destination
 and replaces the destination only after a successful write; failures keep an
 existing file. No non-16-bit or non-stereo format is silently relabelled.
 Keep personal exported audio out of this public repository.
+
+
+## Noise levels
+
+Tuned and untuned noise are centred around zero instead of carrying a large
+positive DC offset. The random range is shifted, not doubled: at 16 bits it is
+-16384 through 16383 before voice gain/envelopes. This retains the previous
+noise's AC energy without an automatic loudness boost. Tuned sample-and-hold
+boundaries and existing gain/decay timing are unchanged.

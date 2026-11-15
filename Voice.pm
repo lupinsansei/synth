@@ -195,6 +195,10 @@ sub make_noise {
 	my $samples = int($samplerate * $length);
 
 	my $scale = (2**$bits)/2;
+	# Remove the unipolar DC component without doubling the random range:
+	# 16-bit noise stays within -16384..16383 before gain/envelopes. This
+	# preserves the old noise's AC energy rather than adding a 6 dB boost.
+	my $noise_midpoint = $scale/2;
 
 	my $carrier_increment = $frequency/$samplerate;
 	my $carrier_counter = 0;
@@ -211,11 +215,11 @@ sub make_noise {
 				unless( $i % $step == 0 ) {		# this makes the noise tuned, which sounds okay sometimes, like 80s computer
 					$v = $last_v;
 				} else {
-					$v = int(rand($scale));
+					$v = int(rand($scale)) - $noise_midpoint;
 					$last_v = $v;
 				}
 			} else {
-				$v = int(rand($scale));
+				$v = int(rand($scale)) - $noise_midpoint;
 			}
 
 			$data_l[$i] = $v * $left_volume;
