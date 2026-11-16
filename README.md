@@ -114,6 +114,12 @@ sound output and full synth GUI playback still need an on-device listening test.
 xvfb-run -a prove -I. -Ilib t/*.t
 ```
 
+Final 16-bit stereo PCM output saturates at -32768..32767 instead of wrapping
+loud peaks into inverted audio. Normal-level samples keep their existing bytes;
+raw synthesis samples and FM modulation retain their original headroom. This
+applies to playback, sliced playback and WAV export. Lower voice gain if you
+want to avoid hard-clipping distortion altogether.
+
 ## Musical FM explorer
 
 The GUI now offers a musically biased alternative to the old independent-knob

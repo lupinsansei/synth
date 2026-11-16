@@ -182,7 +182,13 @@ package Synth;
 		my @wav_data = ();
 
 		for( my $i = $offset; $i<$length; $i++ ) {
-			push( @wav_data, pack("vv", $sample->[0]->[$i], $sample->[1]->[$i] ) );
+            # Saturate only at the final 16-bit PCM boundary. Keep raw sample
+            # arrays and FM modulators untouched, including their extra headroom.
+            my $left = $sample->[0]->[$i];
+            my $right = $sample->[1]->[$i];
+            $left = $left > 32767 ? 32767 : $left < -32768 ? -32768 : $left;
+            $right = $right > 32767 ? 32767 : $right < -32768 ? -32768 : $right;
+            push(@wav_data, pack("vv", $left, $right));
 		}
 
 		return join('', @wav_data);
