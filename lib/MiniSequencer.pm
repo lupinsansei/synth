@@ -30,13 +30,20 @@ sub randomise {
     # Keep a usable phrase even if the random generator chooses many rests.
     for my $i (4,8,12) { $steps[$i]=$self->_note unless defined $steps[$i]; }
     $self->{steps}=\@steps;
+    $self->{muted_notes}={};
     return $self->steps;
 }
 sub steps { return [@{$_[0]{steps}}]; }
 sub toggle {
     my ($self,$index)=@_;
     die 'Step out of range' unless defined $index && $index =~ /^\d+$/ && $index<16;
-    $self->{steps}[$index]=defined $self->{steps}[$index] ? undef : $self->_note;
+    if (defined $self->{steps}[$index]) {
+        $self->{muted_notes}{$index}=$self->{steps}[$index];
+        return $self->{steps}[$index]=undef;
+    }
+    # A saved zero is a real pitch. Only an original rest needs a new note.
+    return $self->{steps}[$index]=exists $self->{muted_notes}{$index}
+        ? delete $self->{muted_notes}{$index} : $self->_note;
 }
 sub midi {
     my ($self,$index,$root)=@_; $root=48 unless defined $root;

@@ -89,7 +89,10 @@ A partial chord failure releases the voices already started.
 Keep clicking until you hear something you like; **Play** repeats the current
 phrase, **Stop** silences it. Tempo is 40–240 BPM with sixteenth-note steps.
 Choose a major, minor or minor-pentatonic scale for the next randomisation.
-The numbered buttons show notes/rests; click to mute or restore a step.
+The numbered buttons show notes/rests; click to mute or restore a step's original
+pitch. Clicking an original rest generates a note in the selected scale. Muting
+and restoring does not reroll notes, even if the scale has changed. Randomising
+starts a fresh phrase and forgets the old phrase's muted pitches.
 Use **Octave - / Octave +** to set the sequencer's root C from octave 0–7,
 independently of the computer keyboard. Changing octave updates the labels and
 the next playing step without changing the pattern or restarting its clock.

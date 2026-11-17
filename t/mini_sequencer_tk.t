@@ -11,6 +11,14 @@ my $seq=MiniSequencer::Tk->new(parent=>$window,play=>sub{push @played,$_[0]},sto
 $seq->widget->pack; $window->update;
 is($seq->{running},0,'creating the UI does not start playback');
 is(scalar @played,0,'no audio callback until explicit user action');
+my $first_label=$seq->{buttons}[0]->cget('-text');
+$seq->{buttons}[0]->invoke;
+like($seq->{buttons}[0]->cget('-text'),qr/--/,'step button shows a rest when muted');
+$seq->{model}{rng}=sub{0.99};
+$seq->{buttons}[0]->invoke;
+is($seq->{buttons}[0]->cget('-text'),$first_label,'step button restores the exact original pitch label');
+is(scalar @played,0,'mute and restore while stopped never trigger playback');
+$seq->{model}{rng}=sub{0};
 $seq->{randomise}->invoke;
 is($seq->{running},1,'Randomise & Play starts transport');
 is(scalar @played,1,'first note starts immediately');
