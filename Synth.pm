@@ -77,6 +77,10 @@ package Synth;
 			$sample = Patch::mix_samples( \@samples );
 		}
 
+        # Each component render overwrites the patch reference. The mixed
+        # sample must transpose from its intended root, not the last chord tone.
+        $patch->rendered_frequency($frequencies->[0]);
+
 		$patch->rendered_sample( $sample );
 		$patch->rendered_wave( sample2wav( $sample ) );
 
