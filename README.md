@@ -90,6 +90,10 @@ A partial chord failure releases the voices already started.
 **Randomise & Play** generates and immediately loops a new 16-step phrase.
 Keep clicking until you hear something you like; **Play** repeats the current
 phrase, **Stop** silences it. Tempo is 40–240 BPM with sixteenth-note steps.
+The clock uses monotonic deadlines so playback setup and UI refresh do not add
+to every step's duration. Fractional intervals are preserved; after a long stall,
+timing restarts from the current callback rather than bursting through missed
+notes. Actual audio-device latency is not compensated.
 Choose a major, minor or minor-pentatonic scale for the next randomisation.
 The numbered buttons show notes/rests; click to mute or restore a step's original
 pitch. Clicking an original rest generates a note in the selected scale. Muting

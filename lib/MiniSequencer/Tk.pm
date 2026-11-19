@@ -4,10 +4,13 @@ use warnings;
 use Tk;
 use Tk::Spinbox;
 use MiniSequencer;
+use Time::HiRes qw(clock_gettime CLOCK_MONOTONIC);
+use POSIX qw(ceil);
 sub new {
     my ($class,%args)=@_;
     die 'parent, play and stop callbacks required' unless $args{parent} && ref($args{play}) eq 'CODE' && ref($args{stop}) eq 'CODE';
-    my $self=bless {model=>MiniSequencer->new(rng=>$args{rng}),play=>$args{play},stop=>$args{stop},octave=>$args{octave}//3,tempo=>120,token=>0,running=>0,status=>'Stopped'},$class;
+    my $self=bless {model=>MiniSequencer->new(rng=>$args{rng}),clock=>$args{clock}//sub{clock_gettime(CLOCK_MONOTONIC)},play=>$args{play},stop=>$args{stop},octave=>$args{octave}//3,tempo=>120,token=>0,running=>0,status=>'Stopped'},$class;
+    die 'clock must be a callback' unless ref($self->{clock}) eq 'CODE';
     die 'Octave must be 0..7' unless $self->{octave} =~ /\A[0-7]\z/;
     my $frame=$self->{widget}=$args{parent}->Frame(-relief=>'groove',-borderwidth=>2);
     $frame->Label(-text=>'Mini sequencer — find a pattern by ear')->pack;
@@ -56,6 +59,7 @@ sub refresh {
 sub stop {
     my $self=shift;
     $self->{running}=0; $self->{token}++;
+    delete $self->{next_step_at};
     if(my $timer=delete $self->{timer}) { eval{$self->{widget}->afterCancel($timer)}; }
     $self->{stop}->(); $self->{status}='Stopped';
     if(!$self->{destroying} && Tk::Exists($self->{widget})) {$self->refresh;}
@@ -67,6 +71,7 @@ sub start {
         $self->{status}='Choose a tempo from 40 to 240 BPM'; return;
     }
     $self->{running}=1; $self->{current}=0;
+    $self->{next_step_at}=$self->{clock}->();
     $self->_tick($self->{token});
 }
 sub randomise { my $self=shift; $self->{model}->randomise; $self->start; }
@@ -81,7 +86,16 @@ sub _tick {
         $self->refresh;
         # Sixteenth-note timing; changes to BPM take effect on the next tick.
         die 'Choose a tempo from 40 to 240 BPM' unless $self->{tempo}=~/^\d+$/ && $self->{tempo}>=40 && $self->{tempo}<=240;
-        my $delay=int(60000/($self->{tempo}*4));
+        return unless $self->{running} && $self->{token}==$token;
+        my $period=60/($self->{tempo}*4);
+        my $now=$self->{clock}->();
+        my $next=$self->{next_step_at}+$period;
+        # Keep fractional deadlines: callback work and Tk's millisecond rounding
+        # must not accumulate into a slower tempo. After a missed deadline,
+        # rebase rather than firing catch-up notes back-to-back.
+        $next=$now+$period if $next<=$now;
+        $self->{next_step_at}=$next;
+        my $delay=ceil(($next-$now)*1000);
         $self->{timer}=$self->{widget}->after($delay,sub {
             return unless $self->{running} && $self->{token}==$token;
             $self->{current}=($self->{current}+1)%16;
