@@ -19,6 +19,7 @@ BEGIN {
  sub new {bless {},shift} sub Status {1} sub Load {} sub Write {$writes++} sub Pause {}
 }
 use Tk;
+use SuperSpinbox;
 use File::Temp qw(tempdir);
 use PatchBank::Tk;
 use PatchBank;
@@ -31,16 +32,30 @@ my $bank_constructor=PatchBank::Tk->can('new');
 my $captured;
 my $exporter;
 my $export_constructor=WavExport::Tk->can('new');
+my @delay_controls;
+my $spinbox_constructor=SuperSpinbox->can('new');
 my $constructor=MainWindow->can('new');
 {
  no warnings qw(redefine once);
  local *PatchBank::Tk::new=sub {my($class,%args)=@_;$banks=$bank_constructor->($class,%args,choose_save=>sub{$bank_path},choose_open=>sub{$open_path},error=>sub{push @errors,$_[0]});return $banks};
  local *WavExport::Tk::new=sub {my($class,%args)=@_;$exporter=$export_constructor->($class,%args,choose_save=>sub{"$dir/gui.wav"},error=>sub{push @errors,$_[0]});return $exporter};
+ local *SuperSpinbox::new=sub {
+   my($class,%args)=@_;
+   my $control=$spinbox_constructor->($class,%args);
+   push @delay_controls,$control if $args{places}==3 && $args{min}==0;
+   return $control;
+ };
  local *MainWindow::new=sub {$captured=$constructor->(@_);return $captured};
  local *Tk::MainLoop=sub {
    my $window=$captured;
    ok($window, 'full synth GUI starts with real Tk and fake external audio');
    $window->update;
+   ok(@delay_controls,'voice Delay widgets use non-negative bounds');
+   if (@delay_controls) {
+     my $control=$delay_controls[0];
+     ok($control->set(-1),'real Delay widget handles negative entry at its lower bound');
+     is(${$control->{variable}},0,'real Delay widget clamps negative input to zero');
+   }
    my @widgets;
    my $walk;$walk=sub{for my $w($_[0]->children){push @widgets,$w;$walk->($w)}};$walk->($window);
    for my $text ('New sound','Like this','Variation','Undo') {

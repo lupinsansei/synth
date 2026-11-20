@@ -392,7 +392,7 @@ sub AddVoicePanel {
 
 	# delay
 	$table->put($row_index, $col++,
-		build_super_number_picker($table, 3, \$voice->{delay}, sub{ OnPatchChange($patch) } )
+		build_super_number_picker($table, 3, \$voice->{delay}, sub{ OnPatchChange($patch) }, 0 )
 	);
 
 	# modulators
@@ -650,8 +650,9 @@ sub draw_waveform {
 }
 
 sub build_super_number_picker {
-    my ($parent, $places, $variable, $command) = @_;
+    my ($parent, $places, $variable, $command, $minimum) = @_;
+    $minimum //= -1000;
     my $control = SuperSpinbox->new(parent => $parent, variable => $variable,
-        integers => 4, places => $places, min => -1000, max => 1000, command => $command);
+        integers => 4, places => $places, min => $minimum, max => 1000, command => $command);
     return $control->widget;
 }

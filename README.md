@@ -32,7 +32,8 @@ normal carry/borrow: `9.9999` plus one ten-thousandth becomes `10.0000`.
 Up always increases the numeric value, including when negative. Click the sign
 to negate, or type a whole number in the entry below and press Enter/tab away.
 Invalid text is highlighted and never sent to the synthesizer; Escape restores
-the last value. Existing -1000..1000 limits remain. External voice changes refresh
+the last value. Controls retain -1000..1000 limits except Delay, which uses 0..1000.
+External voice changes refresh
 the digits without triggering a second render.
 
 Try the standalone, **silent** Tk demo (no Windows audio dependencies):
@@ -53,6 +54,24 @@ places, bounds and change callback. `lib/SuperSpinbox/Value.pm` holds the testab
 fixed-point stepping model. The full synthesizer still requires its original
 Windows audio/MIDI/Moose dependencies; the demo does not play audio.
 
+
+## Voice delay
+
+**Delay** is a non-negative number of milliseconds (0..1000 in the GUI and
+patch banks). It inserts stereo silence before a voice, rounding to the nearest
+frame at the render sample rate. The existing render window is preserved: the
+end is trimmed, and a delay at or beyond the window produces silence. WAV voices
+with automatic duration retain the original file's frame count.
+
+A modulator's delay postpones its modulation, not the carrier's sound. Nested
+delays are relative to each parent's onset: delaying a parent shifts its entire
+modulation subtree, including oscillator phase and voice decay. The patch's
+attack/decay envelope still runs over the overall patch timeline, so it may
+attenuate a late voice. This is separate from playback chord arpeggio spacing;
+like other rendered settings, voice delay transposes with the rendered sample.
+Negative or non-finite delays are rejected, including in imported banks.
+
+Silent regression checks: `prove -I. -Ilib t/voice_delay.t`.
 
 ## Playback chord memory
 

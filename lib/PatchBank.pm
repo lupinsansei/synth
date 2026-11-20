@@ -34,7 +34,7 @@ sub _voice {
  _keys($v,[qw(wave file tuned freq_multiplier volume_multiplier freq_decay volume_decay delay modulators)],'voice');
  my %out;my $wave=$v->{wave}//'sine';die 'Unsupported waveform' unless $wave =~ /\A(?:sine|noise|file)\z/;$out{wave}=$wave;
  for my $key(qw(freq_multiplier volume_multiplier freq_decay volume_decay delay)) {
-  $out{$key}=_number($v->{$key},-1000,1000,$key) if exists $v->{$key};
+  $out{$key}=_number($v->{$key},$key eq 'delay' ? 0 : -1000,1000,$key) if exists $v->{$key};
  }
  $out{tuned}=_boolean($v->{tuned},'tuned') if exists $v->{tuned};
  if(defined $v->{file} && $v->{file} ne '') {$out{file}=_text($v->{file},'sample path');}

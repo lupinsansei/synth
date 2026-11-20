@@ -6,6 +6,13 @@ use Storable qw(dclone);
 use feature qw(switch);
 use Data::Dumper;
 use Audio::Wav;
+use Scalar::Util qw(looks_like_number);
+use POSIX qw(isfinite);
+use Moose::Util::TypeConstraints;
+
+subtype 'VoiceDelayMilliseconds', as 'Num',
+    where { isfinite($_) && $_ >= 0 },
+    message { 'Voice delay must be finite and non-negative (milliseconds)' };
 #use Memoize;
 
 use experimental qw( switch );
@@ -21,7 +28,7 @@ has 'volume_decay'		=> ( is => 'rw', isa => 'Num', default => 0 );
 has 'freq_decay'		=> ( is => 'rw', isa => 'Num', default => 0 );
 
 # delay in ms until the sounds starts - can be used to play 2 sounds at once in one patch with the mixing
-has 'delay'				=> ( is => 'rw', isa => 'Num', default => 0 );
+has 'delay'				=> ( is => 'rw', isa => 'VoiceDelayMilliseconds', default => 0 );
 
 has 'modulators'		=> ( is => 'rw', isa => 'ArrayRef[Voice]', required => 0 );
 
@@ -54,7 +61,29 @@ sub mutate {
 
 
 
+# Delay the complete voice (including its modulation subtree) without extending
+# the render window. Child delays are relative to the parent's audible onset.
 sub render {
+    my ($self, $samplerate, @args) = @_;
+    # GUI bindings write the backing hash directly, bypassing Moose accessors.
+    my $delay = $self->delay;
+    die "Voice delay must be finite and non-negative (milliseconds)"
+        unless defined($delay) && looks_like_number($delay) && isfinite($delay) && $delay >= 0;
+    my $wave = $self->_render_undelayed($samplerate, @args);
+    return $wave unless $delay;
+    my $frames = scalar @{$wave->[0]};
+    # Clamp before integer conversion/allocation, even for enormous delays.
+    my $offset = ($samplerate * $delay) / 1000;
+    $offset = $offset >= $frames ? $frames : int($offset + 0.5);
+    return $wave unless $offset;
+    for my $channel (@$wave) {
+        splice @$channel, $frames - $offset, $offset;
+        unshift @$channel, (0) x $offset;
+    }
+    return $wave;
+}
+
+sub _render_undelayed {
 	my ($self, $samplerate, $bits, $length, $frequency, $left_volume, $right_volume) = @_;
 
 	my $modulator_wave_ref = undef;
@@ -74,15 +103,6 @@ sub render {
 		$modulator_wave_ref = Patch::mix_samples( \@waves );
 	}
 
-	# if( $self->delay ) {
-				# # convert delay ms into samples
-				# my $delay_samples = ($samplerate/$length) * ($self->delay * 1000);
-				# print $delay_samples;
-
-				# # put loads of empty samples at the beginning and remove that many from the end
-				# # remember it's left and right samples
-
-			# }
 
 	given($self->wave) {
 

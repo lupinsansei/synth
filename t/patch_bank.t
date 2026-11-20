@@ -55,6 +55,7 @@ for my $case (
  ['unknown version',sub{$_[0]{version}=9}],
  ['unknown field',sub{$_[0]{command}='never execute'}],
  ['missing selection',sub{$_[0]{selected_patch}='absent'}],
+ ['negative delay',sub{$_[0]{patches}{bell}{voices}[0]{delay}=-1}],
  ['invalid waveform',sub{$_[0]{patches}{bell}{voices}[0]{wave}='execute'}],
  ['unbounded duration',sub{$_[0]{patches}{bell}{length}=9999}],
  ['nonfinite setting',sub{$_[0]{patches}{bell}{voices}[0]{freq_multiplier}='NaN'}],
