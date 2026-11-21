@@ -137,6 +137,15 @@ my $sequencer = MiniSequencer::Tk->new(parent => $mw,
     play => sub { $synth->play_patch(getSelectedPatch(), 'mini-sequencer', $_[0]); },
     stop => sub { $synth->stop_patch('mini-sequencer'); });
 $sequencer->widget->pack(-fill => 'x', -pady => 6);
+$harmony->Button(-text => 'Panic / All notes off', -command => sub {
+    # Cancel the producer first; attempt all channels even if its release fails.
+    my @errors;
+    eval { $sequencer->stop; 1 } or push @errors, $@;
+    eval { $synth->stop_all; 1 } or push @errors, $@;
+    $mw->messageBox(-title => 'Panic playback error', -icon => 'error',
+        -message => join("\n", @errors), -type => 'OK') if @errors;
+})->pack(-side => 'left');
+
 my $explorer = FMPatchExplorer::Tk->new(parent => $mw,
     patch => sub { getSelectedPatch() },
     before => sub { $sequencer->stop },

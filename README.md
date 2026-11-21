@@ -104,6 +104,16 @@ held note. Completed/released slots are reused. This is not literally unlimited
 hardware polyphony: the Windows audio driver may impose its own device limits.
 A partial chord failure releases the voices already started.
 
+## Panic / All notes off
+
+Click **Panic / All notes off** beside the chord controls to stop the sequencer
+and silence every playback channel, including keyboard notes, one-shot piano
+and explorer auditions, and arpeggio tones still in their silent lead-in.
+Held-key bookkeeping is cleared so you can play again. The patch, chord settings
+and sequencer pattern are unchanged; the sequencer stays stopped until Play.
+If a device refuses to pause, the other channels are still attempted and an
+error is shown. A failed channel is retained for another Panic attempt.
+
 ## Mini sequencer
 
 **Randomise & Play** generates and immediately loops a new 16-step phrase.

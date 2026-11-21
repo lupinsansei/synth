@@ -22,7 +22,7 @@ BEGIN {
     sub Status { $_[0]{done} || !$_[0]{writes} }
     sub Load { $_[0]{loaded}=$_[1];push @events,'load'; }
     sub Write { die 'Write failed' if $fail_write;$_[0]{writes}++;push @events,'write'; }
-    sub Pause { $_[0]{paused}++; $_[0]{done}=1 }
+    sub Pause { $_[0]{paused}++; die 'Pause failed' if $_[0]{fail_pause}; $_[0]{done}=1 }
     package TestPatch;
     sub rendered_frequency {440}
     sub rendered_sample { [[1,2,3],[1,2,3]] }
@@ -102,4 +102,31 @@ $Win32::Sound::WaveOut::fail_write=0;
 $arp->{arpeggio_ms}='bad';
 ok(!eval{$arp->play_patch($patch,'invalid',440);1},'invalid typed arp timing rejected');
 is($patch->{rendered_wave},'UNCHANGED SAMPLE','both modes leave the patch cache untouched');
+# Global panic includes unkeyed auditions and buffered, not-yet-audible tones.
+my $panic=Synth->new(Patches=>{},chord_memory=>1,chord_mode=>'Arpeggio');
+my $held=$panic->play_patch($patch,'held',440);
+my $audition=$panic->play_patch($patch,undef,330);
+my $settings=[$panic->chord_memory,$panic->chord_type,$panic->chord_mode,$panic->arpeggio_ms];
+$panic->stop_all;
+is_deeply([map{$_->{paused}}(@$held,@$audition)],[(1)x8],'panic pauses keyed and unkeyed voices, including queued arpeggio tones');
+is_deeply($panic->Keys,{},'panic clears held-key bookkeeping');
+is(scalar(grep{defined $_}@{$panic->Channels}),0,'panic frees every successful channel');
+is_deeply([$panic->chord_memory,$panic->chord_type,$panic->chord_mode,$panic->arpeggio_ms],$settings,'panic preserves playback settings');
+is($patch->{rendered_wave},'UNCHANGED SAMPLE','panic preserves rendered sound');
+$panic->stop_all;
+is_deeply([map{$_->{paused}}@$held],[(1)x4],'repeated panic is harmless');
+my $resumed=$panic->play_patch($patch,'held',440);
+is(scalar @$resumed,4,'same key can immediately play again');
+$panic->stop_patch('held');
+my $bad=$panic->play_patch($patch,'broken',440);
+$bad->[0]{fail_pause}=1;
+ok(!eval{$panic->stop_all;1},'device pause failure is reported');
+like($@,qr/Pause failed/,'original pause error retained');
+is_deeply([map{$_->{paused}}@$bad],[(1)x4],'one failed pause does not skip later channels');
+is_deeply($panic->Keys,{},'held keys cleared even after pause failure');
+is(scalar(grep{defined $_}@{$panic->Channels}),1,'only failed handle retained for retry');
+$bad->[0]{fail_pause}=0;
+$panic->stop_all;
+is($bad->[0]{paused},2,'second panic retries failed handle');
+is(scalar(grep{defined $_}@{$panic->Channels}),0,'retry frees failed channel');
 done_testing;

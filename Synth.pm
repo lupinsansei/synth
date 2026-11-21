@@ -146,11 +146,25 @@ package Synth;
         $self->_release_voices($handles);
     }
 
+    # Include unkeyed auditions and arpeggio buffers still in their lead-in.
+    sub stop_all {
+        my ($self) = @_;
+        my %seen;
+        my @handles = grep { $_ && !$seen{refaddr($_)}++ } @{$self->Channels};
+        $self->Keys({});
+        $self->ChannelIndex(0);
+        $self->_release_voices(\@handles);
+    }
+
     sub _release_voices {
         my ($self, $handles) = @_;
         my $error;
         for my $wave (@$handles) {
-            eval { $wave->Pause(); 1 } or $error ||= $@;
+            unless (eval { $wave->Pause(); 1 }) {
+                $error ||= $@;
+                # Keep a failed handle reachable so another Panic can retry it.
+                next;
+            }
             # Paused WaveOut handles need not report Status=finished. Free their
             # slots explicitly, but never remove a different note that reused one.
             for my $i (0 .. $#{$self->Channels}) {
