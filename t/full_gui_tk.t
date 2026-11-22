@@ -25,12 +25,20 @@ BEGIN {
 use Tk;
 use SuperSpinbox;
 use File::Temp qw(tempdir);
+use Cwd qw(abs_path);
 use PatchBank::Tk;
 use PatchBank;
 use WavExport::Tk;
+use VoiceSample::Tk;
 use MiniSequencer::Tk;
 my $dir=tempdir(CLEANUP=>1);
 my $bank_path="$dir/round-trip.synth.json";
+my $sample_choice="$dir/fictional-gui.wav";
+my $sample_writer=Audio::Wav->new->write($sample_choice,{bits_sample=>16,sample_rate=>44100,channels=>2});
+$sample_writer->write(1000,-1000) for 1..32;$sample_writer->finish;
+my (@sample_controls,@sample_errors);
+my $sample_constructor=VoiceSample::Tk->can('new');
+
 my ($banks,@errors,$open_path);
 $open_path=$bank_path;
 my $bank_constructor=PatchBank::Tk->can('new');
@@ -53,6 +61,11 @@ my $constructor=MainWindow->can('new');
    return $control;
  };
  local *MiniSequencer::Tk::new=sub { $sequencer=$sequencer_constructor->(@_); return $sequencer };
+ local *VoiceSample::Tk::new=sub {
+   my($class,%args)=@_;
+   my $control=$sample_constructor->($class,%args,choose_open=>sub{$sample_choice},error=>sub{push @sample_errors,$_[0]});
+   push @sample_controls,$control;return $control;
+ };
  local *MainWindow::new=sub {$captured=$constructor->(@_);return $captured};
  local *Tk::MainLoop=sub {
    my $window=$captured;
@@ -116,6 +129,21 @@ my $constructor=MainWindow->can('new');
    is(scalar(grep{defined $_}@{$active->Channels}),0,'GUI Panic retries failed device');
    $active->chord_memory(0); $active->chord_mode('Together');
 
+   my ($sample_control)=grep{Tk::Exists($_->widget) && $_->{patch}==$active->Patches->{$selected} && $_->{voice}==$active->Patches->{$selected}->voices->[0]}reverse @sample_controls;
+   ok($sample_control,'sample chooser connected to current full-GUI voice');
+   my $before_sample_writes=$Win32::Sound::WaveOut::writes;
+   ok($sample_control->choose,'full GUI chooser renders chosen fictional WAV');
+   is($active->Patches->{$selected}->voices->[0]->file,$sample_choice,'full GUI updates selected voice path');
+   is($Win32::Sound::WaveOut::writes,$before_sample_writes,'choosing a sample does not audition automatically');
+   my $chosen_pcm=$active->Patches->{$selected}->rendered_wave;
+   {
+     local *Synth::render_patch_as_middle_c=sub {$_[1]->rendered_wave('partial render');die "GUI render failure\n"};
+     ok(!$sample_control->choose,'full GUI catches sample render error');
+   }
+   is($active->Patches->{$selected}->rendered_wave,$chosen_pcm,'full GUI sample error keeps previous waveform');
+   is(scalar @sample_errors,1,'full GUI reports sample error once');
+   ok($sample_control->choose,'full GUI remains usable after sample render error');
+
    ok($banks->save,'full GUI Save writes settings bank');
    my($original_synth,$original_selection)=$banks->{capture}->();
    my $original=PatchBank->capture($original_synth,selected_patch=>$original_selection);
@@ -123,7 +151,19 @@ my $constructor=MainWindow->can('new');
    ok($banks->open,'full GUI Open restores bank and selected patch');
    my($restored,$selection)=$banks->{capture}->();
    isnt($restored,$original_synth,'load replaces synth with freshly reconstructed objects');
-   is_deeply(PatchBank->capture($restored,selected_patch=>$selection),$original,'GUI bank round trip preserves settings');
+   my $round_trip=PatchBank->capture($restored,selected_patch=>$selection);
+   # Bank paths are intentionally relative on disk. Compare referenced files,
+   # not the spelling of an absolute path containing parent-directory segments.
+   my $canonical_voice;$canonical_voice=sub {
+     my $voice=shift;
+     $voice->{file}=abs_path($voice->{file}) || $voice->{file} if $voice->{file};
+     $canonical_voice->($_) for @{$voice->{modulators} || []};
+   };
+   for my $doc ($original,$round_trip) {
+     for my $patch (values %{$doc->{patches}}) { $canonical_voice->($_) for @{$patch->{voices}}; }
+   }
+   is_deeply($round_trip,$original,'GUI bank round trip preserves settings and sample references');
+   ok(-f $restored->Patches->{amen}->voices->[0]->file,'portable bundled sample remains accessible after bank load');
    ok(!$restored->Keys || !keys %{$restored->Keys},'loading does not start playback');
    $restored->play_patch($restored->Patches->{$selection},undef,440);
    $panic_button->invoke;

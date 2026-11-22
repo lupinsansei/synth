@@ -247,3 +247,37 @@ positive DC offset. The random range is shifted, not doubled: at 16 bits it is
 -16384 through 16383 before voice gain/envelopes. This retains the previous
 noise's AC energy without an automatic loudness boost. Tuned sample-and-hold
 boundaries and existing gain/decay timing are unchanged.
+
+## Choosing a WAV sample for a voice
+
+Select **file** in a voice's waveform menu, then use **Choose WAV...** to browse
+for a sample. A compact filename is shown underneath. File voices nested as FM
+modulators have the same chooser. Choosing file without an existing sample opens
+the dialog first; cancelling restores the previous waveform selection.
+
+Selection validates the WAV and renders the current patch silently. It does not
+automatically audition the sample. The sequencer stops before a valid sound
+change. Cancel does nothing; validation or rendering failure keeps the old voice
+settings, sample reference, cached PCM and transpose frequency, and leaves the
+GUI usable. Switching to sine/noise keeps the sample reference for switching
+back. The default bundled sample now uses a portable path beside the program.
+
+This uses the current file renderer, not a new audio conversion engine: choose
+standard uncompressed **16-bit stereo PCM WAV** at the synth's sample rate
+(normally **44100 Hz**). Mono, different bit depths/rates, compressed/extensible
+formats and empty/broken files are rejected with an explanation instead of being
+silently misinterpreted. Convert unsupported files first.
+
+Banks keep their existing relative sample-reference format, without embedding
+recordings. Keep external samples with the bank when moving it. Never commit
+personal recordings or local user banks to this public repository.
+
+Silent generated-fixture checks (with the usual Perl/Tk dependencies installed):
+
+```
+xvfb-run -a prove -I. -Ilib t/voice_sample.t t/voice_sample_tk.t t/full_gui_tk.t
+```
+
+These cover real selection/rendering, cancellation, invalid formats/files,
+nested voices, partial render rollback, bank references and actual Tk callbacks.
+They never open audio hardware. Native Windows audio still needs a listening test.

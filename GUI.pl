@@ -6,6 +6,9 @@ use MiniSequencer::Tk;
 use FMPatchExplorer::Tk;
 use PatchBank::Tk;
 use WavExport::Tk;
+use VoiceSample::Tk;
+use File::Spec;
+use File::Basename qw(dirname);
 use ChordMemory qw(chord_names);
 use warnings;
 use Data::Dumper;
@@ -62,7 +65,7 @@ my $synth = new Synth(
 			name => "amen",
 			decay => 4,
 			voices => [
-				new Voice( wave => 'file', file => 'C:\development\synth\WAV\cw_amen02_165.wav', freq_decay => 0.04 )
+				new Voice( wave => 'file', file => File::Spec->rel2abs(File::Spec->catfile(dirname(__FILE__), 'WAV', 'cw_amen02_165.wav')), freq_decay => 0.04 )
 			],
 			#decay => 0.25
 		),
@@ -370,9 +373,11 @@ sub AddVoicePanel {
 	#$table->put($row_index,$col++,"$row_index");  # simple Label
 
 	# wave menu
-	$table->put($row_index,$col++,
-		$table->Optionmenu(-variable => \$voice->{wave}, -options => GetVoiceList(), -command => sub { OnPatchChange($patch) } )->pack()
-	);
+    my $sample_control = VoiceSample::Tk->new(parent=>$table, voice=>$voice, patch=>$patch,
+        synth=>sub { $synth }, before=>sub { $sequencer->stop },
+        render=>sub { OnPatchChange($patch) },
+        recover=>sub { $mw->Unbusy; draw_waveform($waveform_canvas, $patch->rendered_sample); });
+    $table->put($row_index,$col++, $sample_control->widget);
 
 	# Tuned	
 	$table->put($row_index, $col++,
