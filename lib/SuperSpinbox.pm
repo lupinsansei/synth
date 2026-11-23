@@ -88,7 +88,7 @@ sub _finish {
     $self->refresh unless $commit;
     my $entry = $self->{entry};
     my $focus = $entry->focusCurrent;
-    $self->{digits}{0}->focus if $focus && $focus == $entry;
+    $entry->toplevel->focus if $focus && $focus == $entry;
     $entry->gridForget;
 }
 sub refresh {

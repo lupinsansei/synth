@@ -93,11 +93,14 @@ my $top_frame = $mw->Frame()->pack(-side => 'top', -fill => 'x', -padx => 10, -p
 # Left side - Patch selector
 my $left_frame = $top_frame->Frame()->pack(-side => 'left', -anchor => 'nw');
 $left_frame->Label(-text => 'Patches')->pack(-anchor => 'w');
-my $lbox = $left_frame->Listbox(-height => 8)->pack(-anchor => 'nw', -pady => 5);
+my $lbox = $left_frame->Listbox(-height => 8, -exportselection => 0)->pack(-anchor => 'nw', -pady => 5);
 $lbox->insert('end', keys %{$synth->{Patches}} );
 my $displayed_patch;
+my $selected_patch_name;
 $lbox->bind('<<ListboxSelect>>' => sub {
-    return unless @{$lbox->curselection};
+    my ($index) = $lbox->curselection;
+    return unless defined $index;
+    $selected_patch_name = $lbox->get($index);
     changePatch() unless $displayed_patch && $displayed_patch == getSelectedPatch();
 });
 
@@ -197,7 +200,7 @@ sub handle_keyboard_press {
 
     # Typing a value is editing, not a request to play the keyboard.
     my $widget = shift;
-    return if $widget->isa('Tk::Entry') || $widget->isa('Tk::Spinbox');
+    return if $widget->isa('Tk::Entry') && $widget->cget('-state') ne 'readonly';
 
 	# based on https://www.perlmonks.org/?node_id=144722
 
@@ -238,7 +241,7 @@ sub handle_keyboard_press {
 
 # Settings-only bank files: no device handles, rendered buffers or GUI objects.
 my $banks = PatchBank::Tk->new(parent => $mw,
-    capture => sub { return ($synth, $lbox->get($lbox->curselection->[0])); },
+    capture => sub { return ($synth, $selected_patch_name); },
     apply => sub {
         my $bank = shift;
         my $candidate = Synth->new(Patches => $bank->{patches}, %{$bank->{settings}});
@@ -248,7 +251,7 @@ my $banks = PatchBank::Tk->new(parent => $mw,
         $sequencer->stop;
         $synth->stop_patch($_) for keys %{$synth->Keys};
         my $previous = $synth;
-        my $previous_name = $lbox->get($lbox->curselection->[0]);
+        my $previous_name = $selected_patch_name;
         my $ok = eval {
             $synth = $candidate;
             $lbox->delete(0, 'end'); $lbox->insert('end', sort keys %{$synth->Patches});
@@ -293,7 +296,7 @@ setSelectedPatchByName("bass");
 MainLoop;
 
 sub getSelectedPatch {
-	return $synth->{Patches}->{ $lbox->get( $lbox->curselection->[0] ) };
+	return $synth->{Patches}->{$selected_patch_name};
 }
 
 sub setSelectedPatchByName
@@ -303,6 +306,7 @@ sub setSelectedPatchByName
 	my @elements = $lbox->get(0, 'end');
 	for(my $i=0; $i<@elements; $i++ ) {
 		if( $elements[$i] eq $name ) {
+            $selected_patch_name = $name;
 			$lbox->selectionSet($i);
 		}
 	}
@@ -464,7 +468,7 @@ sub OnPatchChange {
 	#print Dumper( $patch->{voices} );
 
 	$synth->render_patch_as_middle_c($patch);
-    prepare_keyboard($patch);
+    # During parameter edits, let playback load the new PCM for each pitch on demand.
 	
 	# Update waveform visualization
 	redraw_waveform($patch->rendered_sample);
@@ -578,10 +582,7 @@ sub build_key {
 		}
 	);
 
-	# triggered when the button is pressed
-	#$bt->bind('<Button-1>'        => sub {
-	#	print "yo\n";
-	#});
+    $bt->bind('<ButtonPress-1>' => sub { $bt->focus });
 
 	return $bt;
 }

@@ -259,66 +259,35 @@ sub make_wav_file {
 	my $wav = new Audio::Wav;
 	my $read = $wav->read($file);
 
-	# default to the length of the wav file unless specified
-	my $samples;
-	if( $length == 0 ) {
-		$samples = $read->length_samples();
-	} else {
-		$samples = int($samplerate * $length);
-	}
+    my $file_frames = $read->length_samples;
+    my $frames = $length == 0 ? $file_frames : int($samplerate * $length);
+    my @data_l = (0) x $frames;
+    my @data_r = (0) x $frames;
+    # Preserve the existing silent last frame when rendering through EOF.
+    my $end = $frames < $file_frames ? $frames : $file_frames - 1;
+    my $format = $read->details;
+    my $stereo_pcm = $format->{bits_sample} == 16 && $format->{channels} == 2
+        && $format->{block_align} == 4 && !$format->{'wave-ex'};
 
-	#print "Sample length = $length\n";
-
-	my @data_l = ();
-	my @data_r = ();
-
-	my $scale = (2**$bits)/2;
-
-	my $carrier_counter = 0;
-	my $modulator_increment = 0;
-	my $modulator_counter = 0;
-
-
-
-	for( my $i=0; $i <$samples; $i++) {
-
-		my @channels = $read->read();
-
-		if( ($left_volume > 0 || $right_volume > 0 ) && ( $read->position_samples() < $read->length_samples() ) ) {
-
-			# Calculate the pitch, but only bother if volume greater than zero else you can't hear it
-			#my $v = sin($carrier_counter*6.28) * $scale;
-
-			$data_l[$i] = $channels[0] * $left_volume;
-			$data_r[$i] = $channels[1] * $right_volume;
-
-		} else {
-			$data_l[$i] = 0;
-			$data_r[$i] = 0;
-		}
-
-		# modulate the carrier frequency with the current level of modulator_v
-		if( $modulator_wave_ref ) {
-			$carrier_counter += ($frequency + $modulator_wave_ref->[0]->[$i] )/$samplerate;		# hack: we are only using the left channel here
-		} else {
-			$carrier_counter += $frequency/$samplerate;
-		}
-
-		# volume decay
-		if( $volume_decay && $left_volume > 0) {
-			$left_volume -= $volume_decay;
-		}
-
-		if( $volume_decay && $right_volume > 0 ) {
-			$right_volume -= $volume_decay;
-		}
-
-		# frequency decay
-		if( $freq_decay && $frequency > 0 ) {
-			$frequency -= $freq_decay;
-
-		}
-	}
+    for (my $start = 0; $start < $end; $start += 4096) {
+        last if $left_volume <= 0 && $right_volume <= 0;
+        my $count = $end - $start;
+        $count = 4096 if $count > 4096;
+        my @pcm;
+        if ($stereo_pcm) {
+            my $bytes = $read->read_raw_samples($count);
+            die "Short PCM read from $file" unless defined $bytes && length($bytes) == 4 * $count;
+            @pcm = unpack('s<*',$bytes);
+        }
+        for my $i (0 .. $count-1) {
+            last if $left_volume <= 0 && $right_volume <= 0;
+            my ($left,$right) = $stereo_pcm ? @pcm[2*$i, 2*$i+1] : $read->read();
+            $data_l[$start+$i] = $left * $left_volume;
+            $data_r[$start+$i] = $right * $right_volume;
+            $left_volume -= $volume_decay if $volume_decay && $left_volume > 0;
+            $right_volume -= $volume_decay if $volume_decay && $right_volume > 0;
+        }
+    }
 
 	return [ \@data_l, \@data_r ];
 }

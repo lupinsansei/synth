@@ -41,4 +41,14 @@ for my $modulated (0,1) {
  }
 }
 sub max_zero {$_[0]>0?$_[0]:0}
+my $long_path="$dir/chunk-boundary.wav";
+my $long_writer=$wav->write($long_path,{bits_sample=>16,sample_rate=>8000,channels=>2});
+$long_writer->write($_,-$_) for 1..4100;
+$long_writer->finish;
+my $long_voice=Voice->new(wave=>'file',file=>$long_path);
+my $padded=$long_voice->render(8000,16,4104/8000,440,1,1);
+is_deeply([@{$padded->[0]}[4094..4103]],[4095..4099,(0)x5],
+    'block boundary preserves frame order and the silent EOF padding');
+is_deeply([@{$padded->[1]}[4094..4098]],[-4095,-4096,-4097,-4098,-4099],
+    'signed right channel remains aligned across blocks');
 done_testing;
