@@ -349,17 +349,22 @@ sub changePatch {
 
 	# chord
 	$table->put($row_index, 0,
-		"Baked chord (legacy)"
+		"Baked chord"
 	);
 
 	$table->put($row_index, 1,
 		$table->Checkbutton(-variable => \$selected_patch->{chord}, -command => sub{ OnPatchChange($selected_patch) } )
 	);
 
+    $table->put($row_index, 2, $table->Optionmenu(
+        -variable => \$selected_patch->{baked_chord_type},
+        -options => chord_names(),
+        -command => sub { OnPatchChange($selected_patch) if $selected_patch->chord },
+    ));
 
-	$row_index++;
+    $row_index++;
 
-	# foreach voice in patch
+    # foreach voice in patch
 	
 	for(my $i=0; $i<@{$selected_patch->voices}; $i++) {
 

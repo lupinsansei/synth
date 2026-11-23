@@ -108,9 +108,10 @@ whose silent lead-in has not finished. Changing mode affects the next key;
 mode and spacing save with the patch bank. Short sequencer gates can cut an
 arpeggio off before its higher tones; use Together or shorter spacing there.
 
-The older sample-generation **Baked chord (legacy)** option remains available. Its
-C3/E3/F3/A3 mix is referenced to C3, so played notes and octave shifts transpose
-the entire baked chord from its root rather than its final rendered tone.
+Enable **Baked chord** and choose a chord type to mix into the patch sample.
+The selection is saved per patch and uses the same menu choices as chord memory.
+Older patches default to Fmaj7/C (C3, E3, F3, A3). Playing a note transposes
+the whole sample from C3.
 The GUI's default bass patch now starts with that option off, so playback chord
 memory builds harmony from a single-note sample rather than stacking chords.
 Other patches that already contain a chord will still transpose that whole chord.

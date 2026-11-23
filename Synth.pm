@@ -37,12 +37,12 @@ package Synth;
 		
 		my $frequencies;
 		
-		if( $patch->{chord} ) {
-			#$frequencies = [name2freq('f3'), name2freq('a3'), name2freq('c4'), name2freq('e4')]; # FACE FMAJ7
-			$frequencies = [name2freq('c3'), name2freq('e3'), name2freq('f3'), name2freq('a3')]; # FACE FMAJ7 but the way I discovered it on the piano
-		} else {					
-			$frequencies = [name2freq('c3')];
-		}
+		if ($patch->chord && $patch->baked_chord_type eq 'Fmaj7/C') {
+            # Preserve the exact tuning of previously saved baked samples.
+            $frequencies = [map { name2freq($_) } qw(c3 e3 f3 a3)];
+        } else {
+            $frequencies = chord_frequencies(name2freq('c3'), $patch->chord, $patch->baked_chord_type);
+        }
 		
 		$self->render_patch($patch, $frequencies);		
 	}

@@ -53,9 +53,13 @@ sub _validate {
  my $patches=$data->{patches};die 'Expected 1..128 patches' unless ref($patches) eq 'HASH' && keys(%$patches)>=1 && keys(%$patches)<=128;
  my %out;my $count=0;
  for my $name(sort keys %$patches) {
-  _text($name,'patch name');my $p=$patches->{$name};_keys($p,[qw(name length attack decay chord voices)],'patch');
+  _text($name,'patch name');my $p=$patches->{$name};_keys($p,[qw(name length attack decay chord baked_chord_type voices)],'patch');
   my %p=(name=>_text($p->{name}//$name,'patch name'));
   for my $key(qw(length attack decay)) {$p{$key}=_number($p->{$key},0,60,$key) if exists $p->{$key};}
+  if (exists $p->{baked_chord_type}) {
+   chord_intervals($p->{baked_chord_type});
+   $p{baked_chord_type}=$p->{baked_chord_type};
+  }
   $p{chord}=_boolean($p->{chord},'baked chord') if exists $p->{chord};
   die 'Patch needs 1..32 voices' unless ref($p->{voices}) eq 'ARRAY' && @{$p->{voices}} && @{$p->{voices}}<=32;
   $p{voices}=[map{_voice($_,0,\$count)}@{$p->{voices}}];$out{$name}=\%p;
@@ -114,7 +118,7 @@ sub _legacy {
  my %patches; my $count=0;
  for my $name(keys %{$old->{Patches}}) {
   my $p=$old->{Patches}{$name};die 'Invalid legacy patch' unless ref($p) eq 'HASH';
-  my $copy={map{exists $p->{$_}?($_=>$p->{$_}):()}qw(name length attack decay chord voices)};
+  my $copy={map{exists $p->{$_}?($_=>$p->{$_}):()}qw(name length attack decay chord baked_chord_type voices)};
   my $walk;$walk=sub{
    my($v,$depth)=@_;die 'Legacy voices too deeply nested or numerous' if $depth>8 || ++$count>256;die 'Invalid legacy voice' unless ref($v) eq 'HASH';
    my $out={map{defined $v->{$_}?($_=>$v->{$_}):()}qw(wave file tuned freq_multiplier volume_multiplier freq_decay volume_decay delay)};

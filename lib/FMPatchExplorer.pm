@@ -67,7 +67,7 @@ sub _voice_snapshot {
 }
 sub snapshot {
     my ($self,$patch)=@_; my %data;
-    for my $key(qw(length attack decay chord)) {$data{$key}=$patch->{$key} if defined $patch->{$key};}
+    for my $key(qw(length attack decay chord baked_chord_type)) {$data{$key}=$patch->{$key} if defined $patch->{$key};}
     $data{voices}=[map{_voice_snapshot($_)}@{$patch->voices}];
     return \%data; # No rendered samples, Tk objects, names, or unrelated data.
 }
@@ -81,6 +81,7 @@ sub _apply {
     my ($self,$patch,$data)=@_;
     my $voices=[map{_voice($_)}@{$data->{voices}}];
     $patch->voices($voices);
+    $patch->baked_chord_type($data->{baked_chord_type} // 'Fmaj7/C');
     for my $key(qw(length attack decay chord)) {$patch->$key($data->{$key}//0);}
     delete @{$patch}{qw(rendered_wave rendered_sample rendered_frequency)};
 }

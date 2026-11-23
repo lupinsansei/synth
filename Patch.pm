@@ -27,6 +27,7 @@ package Patch;
 	has 'rendered_wave'			=> ( is => 'rw', isa => 'Str' );
 
 	has 'chord' 				=> ( is => 'rw', isa => 'Bool', default => 0 );
+	has 'baked_chord_type' => (is => 'rw', isa => 'Str', default => 'Fmaj7/C');
 
 sub mutate {
 

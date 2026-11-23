@@ -5,11 +5,11 @@ use Exporter 'import';
 use Scalar::Util qw(looks_like_number);
 use POSIX qw(isfinite);
 our @EXPORT_OK = qw(chord_names chord_intervals chord_frequencies);
-my @names = ('Major', 'Minor', 'Major 7th', 'Minor 7th', 'Dominant 7th', 'Sus2', 'Sus4', 'Octave');
+my @names = ('Major', 'Minor', 'Major 7th', 'Minor 7th', 'Dominant 7th', 'Sus2', 'Sus4', 'Octave', 'Fmaj7/C');
 my %chords = (
     'Major' => [0,4,7], 'Minor' => [0,3,7], 'Major 7th' => [0,4,7,11],
     'Minor 7th' => [0,3,7,10], 'Dominant 7th' => [0,4,7,10],
-    'Sus2' => [0,2,7], 'Sus4' => [0,5,7], 'Octave' => [0,12],
+    'Sus2' => [0,2,7], 'Sus4' => [0,5,7], 'Octave' => [0,12], 'Fmaj7/C' => [0,4,5,9],
 );
 sub chord_names { return [@names]; }
 sub chord_intervals {

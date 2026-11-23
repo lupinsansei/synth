@@ -57,6 +57,12 @@ for my $rate (8000,44100) {
         cmp_ok(abs($handles->[$i]{rate}-$rate*$notes->[$i]/$root),'<',1e-6,'playback chord-memory interval remains correctly transposed');
     }
     $synth->stop_patch('chord');
+    $patch->baked_chord_type('Minor 7th');
+    $synth->render_patch_as_middle_c($patch);
+    my @minor_seventh = map { $reference->render($_,$rate,16) }
+        @{chord_frequencies($root,1,'Minor 7th')};
+    is_deeply($patch->rendered_sample,Patch::mix_samples(\@minor_seventh),
+        'patch bakes its selected minor seventh independently of playback chord memory');
     $patch->chord(0);
     $synth->render_patch_as_middle_c($patch);
     cmp_ok(abs($patch->rendered_frequency-$root),'<',1e-9,'ordinary single-note render still keeps its C3 reference');
