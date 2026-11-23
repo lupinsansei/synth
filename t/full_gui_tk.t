@@ -93,6 +93,8 @@ my $constructor=MainWindow->can('new');
    my @widgets;
    my $walk;$walk=sub{for my $w($_[0]->children){push @widgets,$w;$walk->($w)}};$walk->($window);
    my ($list)=grep { $_->isa('Tk::Listbox') } @widgets;
+   my @initial_order=$list->get(0,'end');
+   is_deeply(\@initial_order,[sort @initial_order],'startup patch order is alphabetical');
    $list->focusForce;
    $window->update;
    my $before_z=$Win32::Sound::WaveOut::writes;
@@ -264,6 +266,22 @@ my $constructor=MainWindow->can('new');
    is($banks->current_file,$bank_path,'failed load preserves previous save filename');
    is(scalar @errors,1,'failed load reported exactly once without dialog');
    $window->update;
+   is_deeply([$list->get(0,'end')],\@initial_order,'bank reload preserves patch order');
+   my $renders=0;
+   my $render=Synth->can('render_patch_as_middle_c');
+   local *Synth::render_patch_as_middle_c=sub { ++$renders; $render->(@_) };
+   for my $name (qw(hihat snare hihat)) {
+       my ($i)=grep { $initial_order[$_] eq $name } 0..$#initial_order;
+       my ($x,$y,$width,$height)=$list->bbox($i);
+       for my $event ('<ButtonPress-1>','<ButtonRelease-1>') {
+           $list->eventGenerate($event,-x=>$x+1,-y=>$y+int($height/2));
+       }
+       $window->update;
+       is_deeply([$list->curselection],[$i],"click on $name highlights exactly one row");
+       is($list->index('active'),$i,"keyboard navigation starts from $name");
+       is(($banks->{capture}->())[1],$name,"active sound follows the click on $name");
+   }
+   is($renders,2,'returning to a rendered patch reuses its audio');
    $window->destroy;
  };
  do "$FindBin::Bin/../GUI.pl";

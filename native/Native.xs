@@ -65,6 +65,41 @@ _oscillator(AV *mods, UV frames, double frequency, double rate, double scale, do
         XPUSHs(buffer);
 
 void
+_noise(UV frames, double frequency, double rate, double scale, double gain, double volume_decay, double freq_decay, UV delay, int tuned)
+    PPCODE:
+        size_t bytes = buffer_size(aTHX_ frames);
+        SV *buffer;
+        double *out;
+        double held = 0;
+        U32 i;
+        if (rate <= 0 || delay > frames) croak("Invalid native noise parameters");
+        buffer = sv_2mortal(zero_buffer(aTHX_ bytes));
+        out = (double *)SvPVX(buffer);
+        /* Render before applying delay, as Perl does. Even cropped samples
+           consume their random draws so subsequent voices keep the same sound. */
+        for (i=0; i<frames && gain>0; ++i) {
+            int draw = 1;
+            if (tuned) {
+                double period;
+                if (frequency == 0) croak("Illegal division by zero");
+                period = fabs(rate/frequency);
+                if (period < 1) croak("Illegal modulus zero");
+                draw = period >= frames ? i == 0 : i % (U32)period == 0;
+            }
+            if (draw) {
+                if (!PL_srand_called) {
+                    seedDrand01(Perl_seed(aTHX));
+                    PL_srand_called = TRUE;
+                }
+                held = (int)(Drand01()*scale) - scale/2;
+            }
+            if (i < frames-delay) out[i+delay] = held*gain;
+            if (volume_decay > 0) gain -= volume_decay;
+            if (tuned && frequency > 0 && freq_decay > 0) frequency -= freq_decay;
+        }
+        XPUSHs(buffer);
+
+void
 _finish(AV *voices, UV frames, double attack_end, double decay_frames, int want_pcm)
     PPCODE:
         size_t bytes = buffer_size(aTHX_ frames);

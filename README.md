@@ -8,10 +8,10 @@ the synth. The build uses that Perl's development headers and C toolchain and
 installs the extension under `lib/native` for its specific Perl version and
 architecture. Rebuild after changing Perl versions or updating the native source.
 
-The GUI automatically uses XS for 16-bit sine patches, including nested FM
-modulators, multiple voices, envelopes and voice delays. Playback, keyboard
-handling and waveform drawing still use their existing paths. Noise, WAV and
-mixed patches use the Perl renderer, as does a checkout without the extension.
+The GUI automatically uses XS for 16-bit patches built from sine voices,
+tuned or untuned noise, or a mixture of those voices, including nested FM,
+envelopes and delays. Patches containing a WAV voice use the Perl renderer,
+as does a checkout without the extension.
 Set `SYNTH_PERL_ONLY=1` to compare against the Perl renderer.
 
 Run `prove -I. -Ilib t/native_render.t` after building to check the native

@@ -16,7 +16,8 @@ our $AVAILABLE = do {
 
 sub _eligible {
     my ($v) = @_;
-    return 0 unless ref($v) eq 'Voice' && $v->wave eq 'sine';
+    return 0 unless ref($v) eq 'Voice';
+    return 0 unless $v->wave eq 'sine' || ($v->wave eq 'noise' && __PACKAGE__->can('_noise'));
     # Let the Perl renderer report invalid GUI edits using its existing diagnostics.
     my $delay = $v->delay;
     return 0 unless defined($delay) && looks_like_number($delay) && isfinite($delay) && $delay >= 0;
@@ -28,9 +29,14 @@ sub _voice {
     my ($v,$frames,$root,$rate,$scale) = @_;
     my @mods = map { _voice($_,$frames,$root,$rate,$scale) } @{$v->modulators || []};
     my $delay = $rate*$v->delay/1000;
+    my $offset = $delay >= $frames ? $frames : int($delay+0.5);
+    if ($v->wave eq 'noise') {
+        return _noise($frames,$root*$v->freq_multiplier,$rate,$scale,$v->volume_multiplier,
+            $v->volume_decay,$v->freq_decay,$offset,$v->tuned);
+    }
     return _oscillator(\@mods,$frames,$root*$v->freq_multiplier,$rate,$scale,
         $v->volume_multiplier,$v->volume_decay,$v->freq_decay,
-        $delay >= $frames ? $frames : int($delay+0.5));
+        $offset);
 }
 
 sub render {

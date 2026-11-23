@@ -94,14 +94,25 @@ my $top_frame = $mw->Frame()->pack(-side => 'top', -fill => 'x', -padx => 10, -p
 my $left_frame = $top_frame->Frame()->pack(-side => 'left', -anchor => 'nw');
 $left_frame->Label(-text => 'Patches')->pack(-anchor => 'w');
 my $lbox = $left_frame->Listbox(-height => 8, -exportselection => 0)->pack(-anchor => 'nw', -pady => 5);
-$lbox->insert('end', keys %{$synth->{Patches}} );
+$lbox->insert('end', sort keys %{$synth->Patches});
 my $displayed_patch;
 my $selected_patch_name;
 $lbox->bind('<<ListboxSelect>>' => sub {
     my ($index) = $lbox->curselection;
     return unless defined $index;
-    $selected_patch_name = $lbox->get($index);
-    changePatch() unless $displayed_patch && $displayed_patch == getSelectedPatch();
+    my $name = $lbox->get($index);
+    my $patch = $synth->Patches->{$name};
+    return if $displayed_patch && $displayed_patch == $patch;
+    unless (eval {
+        $synth->render_patch_as_middle_c($patch) unless defined $patch->rendered_wave;
+        1;
+    }) {
+        my $error = $@;
+        highlight_patch($selected_patch_name);
+        $mw->messageBox(-title=>'Cannot load patch', -icon=>'error', -type=>'OK', -message=>$error);
+        return;
+    }
+    setSelectedPatchByName($name,1);
 });
 
 # Waveform and FM explorer share the top row.
@@ -292,6 +303,7 @@ $mw->bind('<Control-s>' => sub{$banks->save; Tk->break});
 CenterWindow($mw, 1200, 650);
 
 setSelectedPatchByName("bass");
+prepare_keyboard(getSelectedPatch());
 
 MainLoop;
 
@@ -299,18 +311,26 @@ sub getSelectedPatch {
 	return $synth->{Patches}->{$selected_patch_name};
 }
 
-sub setSelectedPatchByName
-{
-	my($name, $skip_render) = @_;
-	
-	my @elements = $lbox->get(0, 'end');
-	for(my $i=0; $i<@elements; $i++ ) {
-		if( $elements[$i] eq $name ) {
-            $selected_patch_name = $name;
-			$lbox->selectionSet($i);
-		}
-	}
-	changePatch($skip_render ? 'no-render' : ());
+sub highlight_patch {
+    my ($name) = @_;
+    my @names = $lbox->get(0,'end');
+    for my $index (0..$#names) {
+        next unless $names[$index] eq $name;
+        $lbox->selectionClear(0,'end');
+        $lbox->selectionSet($index);
+        $lbox->selectionAnchor($index);
+        $lbox->activate($index);
+        $lbox->see($index);
+        return;
+    }
+    die "Unknown patch: $name";
+}
+
+sub setSelectedPatchByName {
+    my ($name,$skip_render) = @_;
+    highlight_patch($name);
+    $selected_patch_name = $name;
+    changePatch($skip_render ? 'no-render' : ());
 }
 
 sub changePatch {
@@ -353,7 +373,6 @@ sub changePatch {
 	}
 
 	$synth->render_patch_as_middle_c($selected_patch) unless $skip_render;
-    prepare_keyboard($selected_patch);
 	
 	# Update waveform visualization
     $displayed_patch = $selected_patch;

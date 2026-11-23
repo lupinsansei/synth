@@ -19,6 +19,12 @@ my $bass=Voice->new(freq_multiplier=>2,freq_decay=>0.0004,volume_decay=>0.0001,
                  Voice->new(freq_multiplier=>12,volume_multiplier=>0.03,volume_decay=>0.0000001,freq_decay=>0.0002)]);
 for my $case (
     ['bass',44100,1,0,1,[$bass]],
+    ['hi-hat',44100,1,0,1,[Voice->new(wave=>'noise',volume_decay=>0.00025)]],
+    ['snare',44100,1,0,1,[Voice->new(freq_decay=>0.004,volume_decay=>0.000005),
+        Voice->new(wave=>'noise',delay=>1000,volume_decay=>0.0002)]],
+    ['tuned noise and nested noise FM',16000,0.08,0.001,0.1,[
+        Voice->new(wave=>'noise',tuned=>1,delay=>2.5,freq_decay=>0.03,modulators=>[Voice->new(wave=>'noise')]),
+        Voice->new(modulators=>[Voice->new(wave=>'noise',volume_multiplier=>0.05,delay=>4)])]],
     ['nested FM and stereo mix',22050,0.08,0.007,0.03,[
         Voice->new(delay=>3.9,modulators=>[Voice->new(delay=>1.75,modulators=>[$bass])]),
         Voice->new(freq_multiplier=>0.5,volume_multiplier=>2.25)]],
@@ -31,9 +37,13 @@ for my $case (
     my ($name,$rate,$length,$attack,$decay,$voices)=@$case;
     my $patch=Patch->new(name=>$name,length=>$length,attack=>$attack,decay=>$decay,voices=>$voices);
     my $reference;
+    srand(77);
     { local $ENV{SYNTH_PERL_ONLY}=1; $reference=$patch->render($root,$rate,16) }
+    my $next_random=rand();
+    srand(77);
     my $pcm;
     my $actual=$patch->render($root,$rate,16,\$pcm);
+    is(rand(),$next_random,"$name consumes the same random draws");
     is(length($pcm),4*@{$reference->[0]},"$name used XS and returned stereo PCM");
     ok(defined($pcm) && $pcm eq Synth::sample2wav($reference),"$name matches Perl playback bytes");
     for my $ch (0,1) {
@@ -46,10 +56,8 @@ for my $case (
         cmp_ok($max,'<',0.000001,"$name channel $ch raw samples");
     }
 }
-for my $other (qw(noise file)) {
-    my $patch=Patch->new(length=>0.05,voices=>[Voice->new(modulators=>[Voice->new(wave=>$other)])]);
-    ok(!defined(Synth::Native::render($patch,$root,44100,16)), "nested $other selects the Perl path");
-}
+my $wav_patch=Patch->new(length=>0.05,voices=>[Voice->new(modulators=>[Voice->new(wave=>'file')])]);
+ok(!defined(Synth::Native::render($wav_patch,$root,44100,16)), 'nested file selects the Perl path');
 my $invalid=Voice->new;
 $invalid->{delay}=-1;
 my $patch=Patch->new(length=>0.01,voices=>[$invalid]);

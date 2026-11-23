@@ -85,5 +85,16 @@ my $first=Voice->new;
 my $second=Voice->new(freq_multiplier=>2,delay=>3);
 my $patch=Patch->new(length=>0.01,attack=>0,decay=>1,voices=>[$first,$second]);
 my $patch_expected=Patch::mix_samples([map {Patch::envelope($_->render(10000,16,0.01,440,1,1),0,1,10000)} ($first,$second)]);
-is_deeply($patch->render(440,10000,16),$patch_expected,'layered patch preserves independent voice delays and envelope timeline');
+my $actual=$patch->render(440,10000,16);
+for my $ch (0,1) {
+    my ($got,$want)=($actual->[$ch],$patch_expected->[$ch]);
+    is(scalar @$got, scalar @$want, "layered channel $ch preserves render length");
+    my $max_error=0;
+    for my $i (0..$#$want) {
+        my $error=abs($got->[$i]-$want->[$i]);
+        $max_error=$error if $error>$max_error;
+    }
+    cmp_ok($max_error,'<',1e-6,"layered channel $ch preserves delay and envelope at every frame");
+    ok(pack('s<*',@$got) eq pack('s<*',@$want),"layered channel $ch matches every 16-bit sample");
+}
 done_testing;
