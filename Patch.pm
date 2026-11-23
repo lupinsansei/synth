@@ -72,35 +72,25 @@ sub render {
 	}
 }
 
+# Mix one channel at a time. FM carriers read only the left channel.
+sub mix_channel {
+    my ($waves,$channel) = @_;
+    return [] unless @$waves;
+    my @mixed = @{$waves->[0][$channel]};
+    for my $voice (1 .. $#$waves) {
+        my $input = $waves->[$voice][$channel];
+        for my $i (0 .. $#$input) {
+            $mixed[$i] += $input->[$i];
+        }
+    }
+    my $count = @$waves;
+    $_ /= $count for @mixed;
+    return \@mixed;
+}
+
 sub mix_samples {
-
-	# takes 1.37s
-
-	my $samples = shift;
-
-	my @data_l;
-	my @data_r;
-
-	my $sample_count = scalar @$samples;
-
-	for( my $j=0; $j<$sample_count; $j++ ) {
-
-		my $sample = $samples->[$j];
-
-		my $sample_length = scalar @{$sample->[0]};	# this works well as the sample_length is this current sample's left channel and so it doesn't matter if the samples are different lengths
-
-		for( my $i=0; $i<$sample_length; $i++ ) {
-
-			$data_l[$i] += $sample->[0]->[$i];
-			$data_r[$i] += $sample->[1]->[$i];
-		}
-	}
-
-	# scale down the samples at the end so they aren't too loud
-	foreach(@data_l){ $_ /= $sample_count }
-	foreach(@data_r){ $_ /= $sample_count }
-
-	return [ \@data_l, \@data_r ];
+    my ($waves) = @_;
+    return [mix_channel($waves,0), mix_channel($waves,1)];
 }
 
 # around 'profit' => sub {
@@ -120,38 +110,15 @@ sub envelope {
 	my $decay_end = $attack_end + $decay * $samplerate;
 	my $decay_length = $decay_end-$attack_end;
 
-	my $scale = 0;
-
-	my $sample_length = scalar @{$sample->[0]};
-
-	my @data_l = ();
-	my @data_r = ();
-
-	for( my $i=0; $i<$sample_length; $i++ ) {
-
-		if( $i < $attack_end ) {
-
-			# attack from 0% to 100%
-			$scale = $i/$attack_end;
-
-			$data_l[$i] = $sample->[0]->[$i] * $scale;
-			$data_r[$i] = $sample->[1]->[$i] * $scale;
-
-		} elsif( $i < $decay_end ) {
-
-			# decay from 100% to 0%
-			$scale = 1 - ($i-$attack_end)/$decay_length;
-
-			$data_l[$i] = $sample->[0]->[$i] * $scale;
-			$data_r[$i] = $sample->[1]->[$i] * $scale;
-
-		} else {
-
-			$data_l[$i] = 0;
-			$data_r[$i] = 0;
-		}
-	}
-
+    my ($left,$right) = @$sample;
+    my @data_l = (0) x @$left;
+    my @data_r = (0) x @$left;
+    for my $i (0 .. $#$left) {
+        last if $i >= $attack_end && $i >= $decay_end;
+        my $scale = $i < $attack_end ? $i/$attack_end : 1 - ($i-$attack_end)/$decay_length;
+        $data_l[$i] = $left->[$i] * $scale;
+        $data_r[$i] = $right->[$i] * $scale;
+    }
 	return [ \@data_l, \@data_r ];
 }
 

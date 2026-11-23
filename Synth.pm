@@ -240,8 +240,13 @@ package Synth;
 
         my ($left_channel,$right_channel) = @$sample;
         my $end = $length ? $offset + $length : scalar @$left_channel;
+        my $audio_end = $end;
+        # Short notes often occupy only the start of a full render window.
+        # Append the trailing stereo silence in one operation.
+        --$audio_end while $audio_end > $offset
+            && !$left_channel->[$audio_end-1] && !$right_channel->[$audio_end-1];
         my $pcm = '';
-        for (my $i = $offset; $i < $end; $i++) {
+        for (my $i = $offset; $i < $audio_end; $i++) {
             # Saturate only at the final 16-bit PCM boundary. Keep raw sample
             # arrays and FM modulators untouched, including their extra headroom.
             my $left = $left_channel->[$i];
@@ -251,7 +256,7 @@ package Synth;
             $pcm .= pack('vv', $left, $right);
 		}
 
-		return $pcm;
+        return $pcm . ("\0" x (4 * ($end - $audio_end)));
 	}
 
 return 1;

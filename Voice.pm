@@ -98,7 +98,7 @@ sub _render_undelayed {
 			push( @waves, $samples );
 		}
 
-		$modulator_wave_ref = Patch::mix_samples( \@waves );
+		$modulator_wave_ref = @waves == 1 ? $waves[0] : [Patch::mix_channel(\@waves, 0)];
 	}
 
 
@@ -152,12 +152,13 @@ sub make_sine {
 	my $carrier_counter = 0;
 	
 	my $frequency_divided_by_samplerate = $frequency/$samplerate;
+	my $modulation = $modulator_wave_ref && $modulator_wave_ref->[0];
 
 	# fill the arrays with zeros to start
 	my @data_l = (0) x $samples;
 	my @data_r = (0) x $samples;	
 	
-	for( my $i=0; $i<$samples; $i++) {
+	for my $i (0 .. $samples-1) {
 
 		# Calculate the pitch, but only bother if volume greater than zero else you can't hear it
 		my $v = sin($carrier_counter *6.28) * $scale;
@@ -166,8 +167,8 @@ sub make_sine {
 		$data_r[$i] = $v * $right_volume;		
 
 		# modulate the carrier frequency with the current level of modulator_v
-		if( $modulator_wave_ref ) {
-			$carrier_counter += ($frequency + $modulator_wave_ref->[0]->[$i] )/$samplerate;		# hack: we are only using the left channel here
+		if( $modulation ) {
+			$carrier_counter += ($frequency + $modulation->[$i])/$samplerate;
 		} else {
 			$carrier_counter += $frequency_divided_by_samplerate;
 		}
@@ -204,10 +205,9 @@ sub make_sine {
 sub make_noise {
 	my( $samplerate, $bits, $length, $frequency, $left_volume, $right_volume, $freq_decay, $volume_decay, $tuned ) = @_;
 
-	my @data_l = ();
-	my @data_r = ();
-
 	my $samples = int($samplerate * $length);
+	my @data_l = (0) x $samples;
+	my @data_r = (0) x $samples;
 
 	my $scale = (2**$bits)/2;
 	# Remove the unipolar DC component without doubling the random range:
@@ -215,36 +215,23 @@ sub make_noise {
 	# preserves the old noise's AC energy rather than adding a 6 dB boost.
 	my $noise_midpoint = $scale/2;
 
-	my $carrier_increment = $frequency/$samplerate;
-	my $carrier_counter = 0;
 	my $last_v = 0;
 
-	for( my $i=0; $i <$samples; $i++) {
-
-		my $step = $samplerate/$frequency;
-
-		if( $left_volume > 0 || $right_volume > 0 ) {
-
-			my $v;
-			if( $tuned ) {
-				unless( $i % $step == 0 ) {		# this makes the noise tuned, which sounds okay sometimes, like 80s computer
-					$v = $last_v;
-				} else {
-					$v = int(rand($scale)) - $noise_midpoint;
-					$last_v = $v;
-				}
-			} else {
-				$v = int(rand($scale)) - $noise_midpoint;
+	for my $i (0 .. $samples-1) {
+		last if $left_volume <= 0 && $right_volume <= 0;
+		my $v;
+		if( $tuned ) {
+			my $step = $samplerate/$frequency;
+			if ($i % $step == 0) {
+				$last_v = int(rand($scale)) - $noise_midpoint;
 			}
-
-			$data_l[$i] = $v * $left_volume;
-			$data_r[$i] = $v * $right_volume;
+			$v = $last_v;
 		} else {
-			$data_l[$i] = 0;
-			$data_r[$i] = 0;
+			$v = int(rand($scale)) - $noise_midpoint;
 		}
 
-		$carrier_counter += $carrier_increment;
+		$data_l[$i] = $v * $left_volume;
+		$data_r[$i] = $v * $right_volume;
 
 		# volume decay
 		if( $left_volume > 0 && $volume_decay > 0) {
@@ -256,7 +243,7 @@ sub make_noise {
 		}
 
 		# frequency decay
-		if( $frequency > 0 && $freq_decay > 0 ) {
+		if( $tuned && $frequency > 0 && $freq_decay > 0 ) {
 			$frequency -= $freq_decay;
 		}
 	}
