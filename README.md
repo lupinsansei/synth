@@ -26,15 +26,15 @@ Originally sponsored by [PICA](https://pica.org.au/)
 
 ## Super Spinbox
 
-The oscillator/modulator frequency, volume, decay and delay controls now have a
-`+` and `-` button for every digit. A digit changes its own decimal place with
-normal carry/borrow: `9.9999` plus one ten-thousandth becomes `10.0000`.
-Up always increases the numeric value, including when negative. Click the sign
-to negate, or type a whole number in the entry below and press Enter/tab away.
+The oscillator and modulator controls use one row of native Tk spinboxes. Each
+digit has its own arrows. Click the tens arrow to change a value by 10, or the
+hundredths arrow to change it by 0.01. Digits carry and borrow across the
+decimal point. Up increases the value even when it is negative.
+Use the sign arrows to negate. To replace the whole number, focus a digit and
+start typing, paste, or press F2. Press Enter or Tab to apply the edit.
 Invalid text is highlighted and never sent to the synthesizer; Escape restores
 the last value. Controls retain -1000..1000 limits except Delay, which uses 0..1000.
-External voice changes refresh
-the digits without triggering a second render.
+External voice changes refresh the digits without triggering a second render.
 
 Try the standalone, **silent** Tk demo (no Windows audio dependencies):
 

@@ -5,7 +5,7 @@ use lib "$FindBin::Bin/../lib";
 use Tk;
 use SuperSpinbox;
 my $window = MainWindow->new(-title => 'Super Spinbox — per-digit controls');
-$window->Label(-text => 'Change any digit. Carry and borrow work across the decimal point.')->pack;
+$window->Label(-text => 'Use the arrows on any digit. Press F2 to edit the whole value.')->pack;
 for my $example (['Frequency multiplier', 12.3456, 4], ['Volume decay', 0.000005, 8]) {
     my ($name, $value, $places) = @$example;
     $window->Label(-text => $name)->pack;
