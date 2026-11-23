@@ -124,17 +124,63 @@ package Synth;
         # Grow as necessary instead of wrapping over active chord notes.
         $self->ChannelIndex($index);
         my $rate = ($self->samplerate / $patch->rendered_frequency) * $frequency;
-        my $wave = Win32::Sound::WaveOut->new($rate, $self->bits, $self->channels);
         my $pcm = defined($offset) || defined($length)
             ? sample2wav($patch->rendered_sample, $offset, $length) : $patch->{rendered_wave};
         # Account for EACH voice's playback rate, so a higher chord tone does
         # not shorten the intended time between arpeggio notes.
         my $silent_frames = int(int($rate) * $delay_ms / 1000 + 0.5);
         $pcm = ("\0" x ($silent_frames * 4)) . $pcm if $silent_frames;
-        $wave->Load($pcm);
+        my $wave = $self->_loaded_wave($rate,$pcm,!defined($offset) && !defined($length) && !$silent_frames);
         $self->Channels->[$index] = $wave;
         $reserved->{$index} = 1;
         return $wave;
+    }
+
+    sub _loaded_wave {
+        my ($self,$rate,$pcm,$reusable) = @_;
+        my $format = join('/', int($rate), $self->bits, $self->channels);
+        my $idle = $self->{idle_waves} ||= [];
+        my $wave;
+        for my $i (0 .. $#$idle) {
+            next unless $idle->[$i]{synth_format} eq $format && $idle->[$i]{synth_pcm} eq $pcm;
+            ($wave) = splice @$idle, $i, 1;
+            last;
+        }
+        unless ($wave) {
+            $wave = eval { Win32::Sound::WaveOut->new($rate, $self->bits, $self->channels) };
+            if (!$wave) {
+                die $@ unless @$idle;
+                @$idle = ();
+                $wave = Win32::Sound::WaveOut->new($rate, $self->bits, $self->channels);
+            }
+            $wave->Load($pcm);
+            if ($wave->can('Reset') && $reusable) {
+                $wave->{synth_format} = $format;
+                $wave->{synth_pcm} = $pcm;
+            }
+        }
+        return $wave;
+    }
+
+    sub _keep_idle_wave {
+        my ($self,$wave) = @_;
+        my $idle = $self->{idle_waves} ||= [];
+        shift @$idle if @$idle >= 24;
+        push @$idle, $wave;
+    }
+
+    sub prepare_notes {
+        my ($self,$patch,@frequencies) = @_;
+        return unless Win32::Sound::WaveOut->can('Reset');
+        my %prepared;
+        for my $frequency (@frequencies) {
+            next unless defined $frequency;
+            my $rate = $self->samplerate / $patch->rendered_frequency * $frequency;
+            next if $prepared{int($rate)}++;
+            my $wave = eval { $self->_loaded_wave($rate,$patch->{rendered_wave},1) };
+            last unless $wave;
+            $self->_keep_idle_wave($wave);
+        }
     }
 
     sub stop_patch {
@@ -143,12 +189,13 @@ package Synth;
         my $handles = delete $self->Keys->{$vkcode};
         return unless $handles;
         # Preset/toggle changes affect the next note, not which held voices stop.
-        $self->_release_voices($handles);
+        $self->_release_voices($handles, 1);
     }
 
     # Include unkeyed auditions and arpeggio buffers still in their lead-in.
     sub stop_all {
         my ($self) = @_;
+        delete $self->{idle_waves};
         my %seen;
         my @handles = grep { $_ && !$seen{refaddr($_)}++ } @{$self->Channels};
         $self->Keys({});
@@ -157,10 +204,18 @@ package Synth;
     }
 
     sub _release_voices {
-        my ($self, $handles) = @_;
+        my ($self, $handles, $reuse) = @_;
         my $error;
         for my $wave (@$handles) {
-            unless (eval { $wave->Pause(); 1 }) {
+            unless (eval {
+                if ($reuse && defined $wave->{synth_format}) {
+                    $wave->Reset();
+                    $self->_keep_idle_wave($wave);
+                } else {
+                    $wave->Pause();
+                }
+                1;
+            }) {
                 $error ||= $@;
                 # Keep a failed handle reachable so another Panic can retry it.
                 next;
@@ -183,33 +238,20 @@ package Synth;
 
 		$offset = 0 unless $offset;
 
-		# "pack" it twice for left and right
-
-		if( $length ) {
-
-			#print " offset = $offset length = $length ";
-
-			$length = $length + $offset;
-		} else {
-			$length = scalar @{$sample->[0]};
-
-			#print " length = $length ";
-		}
-
-		# I tried packing a whole array here once but got clicks
-		my @wav_data = ();
-
-		for( my $i = $offset; $i<$length; $i++ ) {
+        my ($left_channel,$right_channel) = @$sample;
+        my $end = $length ? $offset + $length : scalar @$left_channel;
+        my $pcm = '';
+        for (my $i = $offset; $i < $end; $i++) {
             # Saturate only at the final 16-bit PCM boundary. Keep raw sample
             # arrays and FM modulators untouched, including their extra headroom.
-            my $left = $sample->[0]->[$i];
-            my $right = $sample->[1]->[$i];
+            my $left = $left_channel->[$i];
+            my $right = $right_channel->[$i];
             $left = $left > 32767 ? 32767 : $left < -32768 ? -32768 : $left;
             $right = $right > 32767 ? 32767 : $right < -32768 ? -32768 : $right;
-            push(@wav_data, pack("vv", $left, $right));
+            $pcm .= pack('vv', $left, $right);
 		}
 
-		return join('', @wav_data);
+		return $pcm;
 	}
 
 return 1;

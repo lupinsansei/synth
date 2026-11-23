@@ -129,4 +129,21 @@ $bad->[0]{fail_pause}=0;
 $panic->stop_all;
 is($bad->[0]{paused},2,'second panic retries failed handle');
 is(scalar(grep{defined $_}@{$panic->Channels}),0,'retry frees failed channel');
+{
+ no warnings 'once';
+ local *Win32::Sound::WaveOut::Reset=sub { $_[0]{done}=1 };
+ my $cached=Synth->new(Patches=>{});
+ my $sound=bless {rendered_wave=>'first'},'TestPatch';
+ $cached->prepare_notes($sound,440,440);
+ local @Win32::Sound::WaveOut::events;
+ my $first=$cached->play_patch($sound,'a',440)->[0];
+ is_deeply(\@Win32::Sound::WaveOut::events,['write'],'prepared pitch needs only a write on first keypress');
+ my $overlap=$cached->play_patch($sound,'b',440)->[0];
+ isnt($overlap,$first,'overlapping notes retain independent handles');
+ $cached->stop_patch('a');
+ is($cached->play_patch($sound,'a',440)->[0],$first,'released pitch reuses its loaded handle');
+ $cached->stop_patch('a');
+ $sound->{rendered_wave}='edited';
+ is($cached->play_patch($sound,'a',440)->[0]{loaded},'edited','rerendered PCM replaces stale audio');
+}
 done_testing;

@@ -1,7 +1,6 @@
 package Patch;
 
 	use Moose; # automatically turns on strict and warnings
-	#use CHI::Memoize qw(:all);
 	#use Storable qw(dclone);	
 	use Voice;
 	use Data::Dumper;	

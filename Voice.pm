@@ -1,7 +1,6 @@
 package Voice;
 
 use Moose; # automatically turns on strict and warnings
-#use CHI::Memoize qw(:all);
 use Storable qw(dclone);
 use feature qw(switch);
 use Data::Dumper;
@@ -13,7 +12,6 @@ use Moose::Util::TypeConstraints;
 subtype 'VoiceDelayMilliseconds', as 'Num',
     where { isfinite($_) && $_ >= 0 },
     message { 'Voice delay must be finite and non-negative (milliseconds)' };
-#use Memoize;
 
 use experimental qw( switch );
 
@@ -144,9 +142,6 @@ sub _render_undelayed {
 	}
 }
 
-#memoize( 'make_sine', driver => 'File', root_dir => 'c:\Cache', expires_in => '1h' );	this isn't any faster than normal, it's slightly slower
-#memoize( 'make_sine', driver => 'RawMemory' );	# takes too long too!
-
 sub make_sine {
 	my( $samplerate, $bits, $length, $frequency, $left_volume, $right_volume, $freq_decay, $modulator_wave_ref, $volume_decay ) = @_;
 
@@ -165,7 +160,7 @@ sub make_sine {
 	for( my $i=0; $i<$samples; $i++) {
 
 		# Calculate the pitch, but only bother if volume greater than zero else you can't hear it
-		my $v = sin($carrier_counter *6.28) * $scale;	# I tried to speed up sin with things like memoize and hash tables and lookups but it's not any faster
+		my $v = sin($carrier_counter *6.28) * $scale;
 
 		$data_l[$i] = $v * $left_volume;
 		$data_r[$i] = $v * $right_volume;		

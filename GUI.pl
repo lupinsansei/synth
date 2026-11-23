@@ -8,6 +8,7 @@ use PatchBank::Tk;
 use WavExport::Tk;
 use VoiceSample::Tk;
 use File::Spec;
+use File::Temp qw(tempfile);
 use File::Basename qw(dirname);
 use ChordMemory qw(chord_names);
 use warnings;
@@ -126,9 +127,29 @@ my @voices = qw();
 
 
 my $selected_octave = 3;
+my $pref_dir = $ENV{APPDATA} || $ENV{HOME};
+my $octave_file = defined($pref_dir) ? File::Spec->catfile($pref_dir,'perl-synth-sequencer-octave') : undef;
+my $sequencer_octave = 3;
+if (defined $octave_file && open(my $saved,'<',$octave_file)) {
+    my $value = <$saved>;
+    $sequencer_octave = int($value) if defined($value) && $value =~ /\A[0-7]\s*\z/;
+    close $saved;
+}
 my $bottom_frame = $mw->Frame()->pack(-side => 'top', -fill => 'x', -padx => 10, -pady => 5);
 my $sequencer = MiniSequencer::Tk->new(parent => $bottom_frame,
-    octave => 3,
+    octave => $sequencer_octave,
+    prepare => sub { $synth->prepare_notes(getSelectedPatch(), @_); },
+    octave_changed => sub {
+        return unless defined $octave_file;
+        my ($octave) = @_;
+        eval {
+            my ($fh,$tmp) = tempfile('synth-octave-XXXXXX',DIR=>$pref_dir,UNLINK=>1);
+            print {$fh} "$octave\n" or die $!;
+            close $fh or die $!;
+            rename $tmp,$octave_file or die $!;
+            1;
+        } or warn "Could not save sequencer octave: $@";
+    },
     play => sub { $synth->play_patch(getSelectedPatch(), 'mini-sequencer', $_[0]); },
     stop => sub { $synth->stop_patch('mini-sequencer'); });
 $sequencer->widget->pack(-side => 'right', -fill => 'x', -expand => 1, -padx => 6, -pady => 6);
@@ -157,10 +178,10 @@ build_keyboard($bottom_frame);
 # Reserve space for transport/explorer first; scroll the larger voice table.
 $table->pack(-fill => 'both', -expand => 1);
 
-$mw->bind('<KeyPress>' => \&print_keysym);
+$mw->bind('<KeyPress>' => \&handle_keyboard_press);
 $mw->bind('<KeyRelease>' => sub { my $widget = shift; $synth->stop_patch(lc $widget->XEvent->K); });
 
-sub print_keysym {
+sub handle_keyboard_press {
 
     # Typing a value is editing, not a request to play the keyboard.
     my $widget = shift;
@@ -169,16 +190,13 @@ sub print_keysym {
 	# based on https://www.perlmonks.org/?node_id=144722
 
    my $e = $widget->XEvent;
-   my ($keysym_text, $keysym_decimal) = (lc $e->K, $e->N);
+   my $keysym_text = lc $e->K;
 
-   print "keysym=$keysym_text, numberic=$keysym_decimal\n";
-
-	# change selected octave if 1-5 is pressed
 	if( $keysym_text =~ /^([0-5])$/ ) {
+        return if $selected_octave == $1;
 		$selected_octave = $1;
-		# force into number https://stackoverflow.com/questions/288900/how-can-i-convert-a-string-to-a-number-in-perl
-
-		print "Octave changed to $selected_octave\n";			
+        prepare_keyboard(getSelectedPatch()) unless $sequencer->{running};
+        return;
 	}
 	
 	my $note = "";
@@ -202,7 +220,6 @@ sub print_keysym {
 	}
 
 	if( $note ) {
-		print "Note = $note\n";
 		$synth->play_patch(getSelectedPatch(), $keysym_text, name2freq($note));
 	}
 }
@@ -325,6 +342,7 @@ sub changePatch {
 	$mw->update;	
 
 	$synth->render_patch_as_middle_c($selected_patch) unless $skip_render;
+    prepare_keyboard($selected_patch);
 	
 	# Update waveform visualization
 	draw_waveform($waveform_canvas, $selected_patch->rendered_sample);
@@ -444,6 +462,7 @@ sub OnPatchChange {
 	$mw->update;
 	
 	$synth->render_patch_as_middle_c($patch);
+    prepare_keyboard($patch);
 	
 	# Update waveform visualization
 	draw_waveform($waveform_canvas, $patch->rendered_sample);
@@ -453,6 +472,14 @@ sub OnPatchChange {
 
 	# Removed automatic playback - user can play manually with keyboard
 	#$synth->play_patch($patch, undef, name2freq('c' . $selected_octave));
+}
+
+sub prepare_keyboard {
+    my ($patch) = @_;
+    return unless Win32::Sound::WaveOut->can('Reset');
+    my @names = map { $_ . $selected_octave } split ' ', 'c c# d d# e f f# g g# a a# b';
+    push @names, 'c'.($selected_octave+1), 'd'.($selected_octave+1);
+    $synth->prepare_notes($patch,map { name2freq($_) } @names);
 }
 
 sub AddTableHeader {
@@ -563,8 +590,6 @@ sub play_selected_patch {
 
 	my($note) = @_;
 	
-	print "play_selected_patch $note\n";
-
 	$synth->play_patch(getSelectedPatch(), undef, name2freq($note));	# note is kind of like a closure
 }
 
