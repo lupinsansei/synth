@@ -95,23 +95,32 @@ my $left_frame = $top_frame->Frame()->pack(-side => 'left', -anchor => 'nw');
 $left_frame->Label(-text => 'Patches')->pack(-anchor => 'w');
 my $lbox = $left_frame->Listbox(-height => 8)->pack(-anchor => 'nw', -pady => 5);
 $lbox->insert('end', keys %{$synth->{Patches}} );
-$lbox->bind('<<ListboxSelect>>' => \&changePatch );
+my $displayed_patch;
+$lbox->bind('<<ListboxSelect>>' => sub {
+    return unless @{$lbox->curselection};
+    changePatch() unless $displayed_patch && $displayed_patch == getSelectedPatch();
+});
 
 # Waveform and FM explorer share the top row.
 my $explorer_frame = $top_frame->Frame()->pack(-side => 'right', -anchor => 'ne', -padx => 4);
 my $waveform_frame = $top_frame->Frame()->pack(-side => 'right', -fill => 'both', -expand => 1);
 my $waveform_canvas = $waveform_frame->Canvas(-height => 150, -bg => 'black', -relief => 'sunken', -bd => 2)->pack(-side => 'left', -fill => 'both', -expand => 1, -padx => 5);
 
-my ($displayed_sample,$redraw_timer);
-sub queue_waveform_redraw {
+my $displayed_sample;
+sub redraw_waveform {
     $displayed_sample = shift if @_;
-    return if defined $redraw_timer;
-    $redraw_timer = $waveform_canvas->afterIdle(sub {
-        undef $redraw_timer;
-        draw_waveform($waveform_canvas,$displayed_sample);
-    });
+    return unless $waveform_canvas->width > 1 && $waveform_canvas->height > 1;
+    draw_waveform($waveform_canvas,$displayed_sample);
 }
-$waveform_canvas->bind('<Configure>' => sub { queue_waveform_redraw() });
+my $resize_redraw;
+my $after_layout = sub {
+    return if defined $resize_redraw;
+    $resize_redraw = $waveform_canvas->afterIdle(sub {
+        undef $resize_redraw;
+        redraw_waveform();
+    });
+};
+$waveform_canvas->CanvasBind('<Configure>' => $after_layout);
 
 # $mw->Button(
 #     -text    => 'Quit',
@@ -174,7 +183,7 @@ my $explorer = FMPatchExplorer::Tk->new(parent => $explorer_frame,
         changePatch();
         $synth->play_patch($patch, undef, name2freq('c' . $selected_octave));
     },
-    recover => sub { $mw->Unbusy; changePatch('no-render'); });
+    recover => sub { changePatch('no-render'); });
 $explorer->widget->pack(-fill => 'both', -expand => 1);
 
 build_keyboard($bottom_frame);
@@ -257,7 +266,7 @@ my $banks = PatchBank::Tk->new(parent => $mw,
             $chord_selector->configure(-variable => \$synth->{chord_type});
             $chord_mode->configure(-variable => \$synth->{chord_mode});
             $arpeggio_step->configure(-textvariable => \$synth->{arpeggio_ms});
-            $mw->Unbusy; setSelectedPatchByName($previous_name, 1);
+            setSelectedPatchByName($previous_name, 1);
             die $error;
         }
         # Undo/keeper state from another bank must not leak into the loaded one.
@@ -339,19 +348,13 @@ sub changePatch {
 		AddVoicePanel($table, $row_index++, $selected_patch, $voice);
 	}
 
-	# render the sound
-	#print "changePatch\n";
-	$mw->Busy;
-	$mw->update;	
-
 	$synth->render_patch_as_middle_c($selected_patch) unless $skip_render;
     prepare_keyboard($selected_patch);
 	
 	# Update waveform visualization
-	queue_waveform_redraw($selected_patch->rendered_sample);
+    $displayed_patch = $selected_patch;
+	redraw_waveform($selected_patch->rendered_sample);
 
-	$mw->Unbusy;
-	$mw->update;
 }
 
 sub AddVoicePanel {
@@ -386,7 +389,7 @@ sub AddVoicePanel {
     my $sample_control = VoiceSample::Tk->new(parent=>$table, voice=>$voice, patch=>$patch,
         synth=>sub { $synth }, before=>sub { $sequencer->stop },
         render=>sub { OnPatchChange($patch) },
-        recover=>sub { $mw->Unbusy; queue_waveform_redraw($patch->rendered_sample); });
+        recover=>sub { redraw_waveform($patch->rendered_sample); });
     $table->put($row_index,$col++, $sample_control->widget);
 
 	# Tuned	
@@ -425,7 +428,6 @@ sub AddVoicePanel {
 
 		for(my $i=0; $i<@{$voice->modulators}; $i++) {
 
-			print "modulator $i\n";
 
 			my $modulator = $voice->modulators->[$i];
 
@@ -461,17 +463,12 @@ sub OnPatchChange {
 	#print Dumper( $synth );	# this works and dumps out the whole set of patches
 	#print Dumper( $patch->{voices} );
 
-	$mw->Busy;
-	$mw->update;
-	
 	$synth->render_patch_as_middle_c($patch);
     prepare_keyboard($patch);
 	
 	# Update waveform visualization
-	queue_waveform_redraw($patch->rendered_sample);
+	redraw_waveform($patch->rendered_sample);
 
-	$mw->Unbusy;
-	$mw->update;
 
 	# Removed automatic playback - user can play manually with keyboard
 	#$synth->play_patch($patch, undef, name2freq('c' . $selected_octave));
@@ -501,7 +498,7 @@ sub CenterWindow
 	# https://www.perlmonks.org/?node_id=356942
 
     my($window, $width, $height) = @_;
-    $window->idletasks;
+    $window->idletasks unless $width && $height;
     $width  = $window->reqwidth  unless $width;
     $height = $window->reqheight unless $height;
     my $x = int(($window->screenwidth  / 2) - ($width  / 2));
