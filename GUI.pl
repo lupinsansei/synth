@@ -96,8 +96,10 @@ my $lbox = $left_frame->Listbox(-height => 8)->pack(-anchor => 'nw', -pady => 5)
 $lbox->insert('end', keys %{$synth->{Patches}} );
 $lbox->bind('<<ListboxSelect>>' => \&changePatch );
 
-# Right side - Waveform visualization (expand to fill remaining space)
-my $waveform_canvas = $top_frame->Canvas(-height => 150, -bg => 'black', -relief => 'sunken', -bd => 2)->pack(-side => 'right', -fill => 'x', -expand => 1, -padx => 10);
+# Waveform and FM explorer share the top row.
+my $explorer_frame = $top_frame->Frame()->pack(-side => 'right', -anchor => 'ne', -padx => 4);
+my $waveform_frame = $top_frame->Frame()->pack(-side => 'right', -fill => 'both', -expand => 1);
+my $waveform_canvas = $waveform_frame->Canvas(-height => 150, -bg => 'black', -relief => 'sunken', -bd => 2)->pack(-side => 'left', -fill => 'both', -expand => 1, -padx => 5);
 
 # Add a refresh button next to the waveform
 my $refresh_btn = $top_frame->Button(-text => "Refresh Waveform", -command => sub {
@@ -124,11 +126,12 @@ my @voices = qw();
 
 
 my $selected_octave = 3;
-my $sequencer = MiniSequencer::Tk->new(parent => $mw,
+my $bottom_frame = $mw->Frame()->pack(-side => 'top', -fill => 'x', -padx => 10, -pady => 5);
+my $sequencer = MiniSequencer::Tk->new(parent => $bottom_frame,
     octave => 3,
     play => sub { $synth->play_patch(getSelectedPatch(), 'mini-sequencer', $_[0]); },
     stop => sub { $synth->stop_patch('mini-sequencer'); });
-$sequencer->widget->pack(-fill => 'x', -pady => 6);
+$sequencer->widget->pack(-side => 'right', -fill => 'x', -expand => 1, -padx => 6, -pady => 6);
 $harmony->Button(-text => 'Panic / All notes off', -command => sub {
     # Cancel the producer first; attempt all channels even if its release fails.
     my @errors;
@@ -138,7 +141,7 @@ $harmony->Button(-text => 'Panic / All notes off', -command => sub {
         -message => join("\n", @errors), -type => 'OK') if @errors;
 })->pack(-side => 'left');
 
-my $explorer = FMPatchExplorer::Tk->new(parent => $mw,
+my $explorer = FMPatchExplorer::Tk->new(parent => $explorer_frame,
     patch => sub { getSelectedPatch() },
     before => sub { $sequencer->stop },
     context => sub { {samplerate=>$synth->samplerate, bits=>$synth->bits} },
@@ -148,28 +151,25 @@ my $explorer = FMPatchExplorer::Tk->new(parent => $mw,
         $synth->play_patch($patch, undef, name2freq('c' . $selected_octave));
     },
     recover => sub { $mw->Unbusy; changePatch('no-render'); });
-$explorer->widget->pack(-fill => 'x', -pady => 6);
+$explorer->widget->pack(-fill => 'both', -expand => 1);
 
-
-build_keyboard($mw);
+build_keyboard($bottom_frame);
 # Reserve space for transport/explorer first; scroll the larger voice table.
 $table->pack(-fill => 'both', -expand => 1);
 
 $mw->bind('<KeyPress>' => \&print_keysym);
-$mw->bind('<KeyRelease>' => sub { my $widget = shift; $synth->stop_patch($widget->XEvent->K); });
+$mw->bind('<KeyRelease>' => sub { my $widget = shift; $synth->stop_patch(lc $widget->XEvent->K); });
 
 sub print_keysym {
 
     # Typing a value is editing, not a request to play the keyboard.
-    my $focus = $mw->focus;
-    return if $focus && ($focus->isa('Tk::Entry') || $focus->isa('Tk::Spinbox'));
+    my $widget = shift;
+    return if $widget->isa('Tk::Entry') || $widget->isa('Tk::Spinbox');
 
 	# based on https://www.perlmonks.org/?node_id=144722
 
-   my $widget = shift;
-
    my $e = $widget->XEvent;
-   my ($keysym_text, $keysym_decimal) = ($e->K, $e->N);
+   my ($keysym_text, $keysym_decimal) = (lc $e->K, $e->N);
 
    print "keysym=$keysym_text, numberic=$keysym_decimal\n";
 

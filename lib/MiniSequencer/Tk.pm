@@ -4,12 +4,33 @@ use warnings;
 use Tk;
 use Tk::Spinbox;
 use MiniSequencer;
-use Time::HiRes qw(clock_gettime CLOCK_MONOTONIC);
+use Time::HiRes ();
 use POSIX qw(ceil);
+
+sub _default_clock {
+    my $id = eval { Time::HiRes::CLOCK_MONOTONIC() };
+    if (defined $id && defined eval { Time::HiRes::clock_gettime($id) }) {
+        return sub { Time::HiRes::clock_gettime($id) };
+    }
+    if ($^O eq 'MSWin32') {
+        require Win32;
+        my $previous = Win32::GetTickCount();
+        my $elapsed = 0;
+        return sub {
+            my $now = Win32::GetTickCount();
+            # The Windows millisecond counter wraps every 2^32 ticks.
+            $elapsed += ($now - $previous) % 4294967296;
+            $previous = $now;
+            return $elapsed / 1000;
+        };
+    }
+    return \&Time::HiRes::time;
+}
+
 sub new {
     my ($class,%args)=@_;
     die 'parent, play and stop callbacks required' unless $args{parent} && ref($args{play}) eq 'CODE' && ref($args{stop}) eq 'CODE';
-    my $self=bless {model=>MiniSequencer->new(rng=>$args{rng}),clock=>$args{clock}//sub{clock_gettime(CLOCK_MONOTONIC)},play=>$args{play},stop=>$args{stop},octave=>$args{octave}//3,tempo=>120,token=>0,running=>0,status=>'Stopped'},$class;
+    my $self=bless {model=>MiniSequencer->new(rng=>$args{rng}),clock=>$args{clock}//_default_clock(),play=>$args{play},stop=>$args{stop},octave=>$args{octave}//3,tempo=>120,token=>0,running=>0,status=>'Stopped'},$class;
     die 'clock must be a callback' unless ref($self->{clock}) eq 'CODE';
     die 'Octave must be 0..7' unless $self->{octave} =~ /\A[0-7]\z/;
     my $frame=$self->{widget}=$args{parent}->Frame(-relief=>'groove',-borderwidth=>2);

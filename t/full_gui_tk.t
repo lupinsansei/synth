@@ -79,6 +79,23 @@ my $constructor=MainWindow->can('new');
    }
    my @widgets;
    my $walk;$walk=sub{for my $w($_[0]->children){push @widgets,$w;$walk->($w)}};$walk->($window);
+   my ($list)=grep { $_->isa('Tk::Listbox') } @widgets;
+   $list->focusForce;
+   $window->update;
+   my $before_z=$Win32::Sound::WaveOut::writes;
+   $list->eventGenerate('<KeyPress-z>');
+   is($Win32::Sound::WaveOut::writes,$before_z+1,'Z plays C3 from the patch list');
+   my ($playing)=$banks->{capture}->();
+   $list->eventGenerate('<KeyRelease-z>');
+   ok(!exists $playing->Keys->{z},'releasing Z clears the held note');
+   my ($entry)=grep { $_->isa('Tk::Entry') && $_->ismapped } @widgets;
+   $entry->focusForce;
+   $window->update;
+   my $original_value = $entry->get;
+   $entry->eventGenerate('<KeyPress-z>');
+   is($Win32::Sound::WaveOut::writes,$before_z+1,'typing Z in an editor leaves playback idle');
+   $entry->delete(0,'end');
+   $entry->insert(0,$original_value);
    for my $text ('New sound','Like this','Variation','Undo') {
     my ($button)=grep{$_->isa('Tk::Button') && eval{($_->cget('-text') // '') eq $text}}@widgets;
     ok($button,"$text control integrated into full GUI");
