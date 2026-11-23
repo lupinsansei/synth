@@ -11,7 +11,9 @@ sub new {
     die 'parent and scalar variable are required' unless $args{parent} && ref($args{variable}) eq 'SCALAR';
     my $self = bless { variable => $args{variable}, command => $args{command} }, $class;
     my $model = $self->{model} = SuperSpinbox::Value->new(%args, value => ${$args{variable}});
-    my $frame = $self->{widget} = $args{parent}->Frame;
+    my $frame = $self->{widget} = $args{parent}->Frame(
+        -relief => 'groove', -borderwidth => 2, -padx => 3, -pady => 1,
+    );
     my $font = [$frame->fontActual('TkFixedFont', '-family'), 10];
     my $column = 0;
     if ($model->{min} < 0) {
