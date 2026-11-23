@@ -1,6 +1,22 @@
 # synth
 Perl/TK synthesizer
 
+## Optional XS renderer
+
+Run `perl native/build.pl` with the same Perl that runs `GUI.pl`, then restart
+the synth. The build uses that Perl's development headers and C toolchain and
+installs the extension under `lib/native` for its specific Perl version and
+architecture. Rebuild after changing Perl versions or updating the native source.
+
+The GUI automatically uses XS for 16-bit sine patches, including nested FM
+modulators, multiple voices, envelopes and voice delays. Playback, keyboard
+handling and waveform drawing still use their existing paths. Noise, WAV and
+mixed patches use the Perl renderer, as does a checkout without the extension.
+Set `SYNTH_PERL_ONLY=1` to compare against the Perl renderer.
+
+Run `prove -I. -Ilib t/native_render.t` after building to check the native
+renderer against the Perl implementation.
+
 *To Do*
 
 - Speed it all up

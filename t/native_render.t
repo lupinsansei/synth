@@ -1,0 +1,58 @@
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/..", "$FindBin::Bin/../lib";
+use Test::More;
+BEGIN {
+    $INC{'MIDI/Pitch.pm'}=__FILE__;
+    package MIDI::Pitch;
+    sub import { }
+}
+use Patch;
+use Synth;
+
+plan skip_all => 'Build the optional renderer with perl native/build.pl' unless $Synth::Native::AVAILABLE;
+local $ENV{SYNTH_PERL_ONLY}=0;
+my $root=440*2**(-21/12);
+my $bass=Voice->new(freq_multiplier=>2,freq_decay=>0.0004,volume_decay=>0.0001,
+    modulators=>[Voice->new(freq_multiplier=>6,volume_multiplier=>0.055,volume_decay=>0.000006,freq_decay=>0.0002),
+                 Voice->new(freq_multiplier=>12,volume_multiplier=>0.03,volume_decay=>0.0000001,freq_decay=>0.0002)]);
+for my $case (
+    ['bass',44100,1,0,1,[$bass]],
+    ['nested FM and stereo mix',22050,0.08,0.007,0.03,[
+        Voice->new(delay=>3.9,modulators=>[Voice->new(delay=>1.75,modulators=>[$bass])]),
+        Voice->new(freq_multiplier=>0.5,volume_multiplier=>2.25)]],
+    ['decay crossing zero and delay beyond window',8000,0.1,0.3,0,[
+        Voice->new(volume_multiplier=>0.5,volume_decay=>0.15,freq_decay=>100),
+        Voice->new(delay=>2000)]],
+    ['clipping',48000,0.1,0,1,[Voice->new(volume_multiplier=>4)]],
+    ['empty render',44100,0,0,0,[Voice->new]],
+) {
+    my ($name,$rate,$length,$attack,$decay,$voices)=@$case;
+    my $patch=Patch->new(name=>$name,length=>$length,attack=>$attack,decay=>$decay,voices=>$voices);
+    my $reference;
+    { local $ENV{SYNTH_PERL_ONLY}=1; $reference=$patch->render($root,$rate,16) }
+    my $pcm;
+    my $actual=$patch->render($root,$rate,16,\$pcm);
+    is(length($pcm),4*@{$reference->[0]},"$name used XS and returned stereo PCM");
+    ok(defined($pcm) && $pcm eq Synth::sample2wav($reference),"$name matches Perl playback bytes");
+    for my $ch (0,1) {
+        is(scalar @{$actual->[$ch]},scalar @{$reference->[$ch]},"$name channel $ch length");
+        my $max=0;
+        for my $i (0..$#{$reference->[$ch]}) {
+            my $d=abs($actual->[$ch][$i]-$reference->[$ch][$i]);
+            $max=$d if $d>$max;
+        }
+        cmp_ok($max,'<',0.000001,"$name channel $ch raw samples");
+    }
+}
+for my $other (qw(noise file)) {
+    my $patch=Patch->new(length=>0.05,voices=>[Voice->new(modulators=>[Voice->new(wave=>$other)])]);
+    ok(!defined(Synth::Native::render($patch,$root,44100,16)), "nested $other selects the Perl path");
+}
+my $invalid=Voice->new;
+$invalid->{delay}=-1;
+my $patch=Patch->new(length=>0.01,voices=>[$invalid]);
+eval { $patch->render($root,44100,16) };
+like($@,qr/delay must be finite and non-negative/,'invalid delay retains the Perl diagnostic');
+done_testing;

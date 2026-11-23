@@ -11,3 +11,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y perl-tk xvfb libmoose-perl libaudio-wav-perl libyaml-syck-perl
       - name: Test models and real Tk widgets without audio
         run: xvfb-run -a prove -I. -Ilib t/*.t
+      - name: Build and test the XS renderer
+        run: |
+          perl native/build.pl
+          perl -Ilib -MSynth::Native -e 'die "XS failed to load" unless $Synth::Native::AVAILABLE'
+          xvfb-run -a prove -I. -Ilib t/*.t

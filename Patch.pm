@@ -3,6 +3,10 @@ package Patch;
 	use Moose; # automatically turns on strict and warnings
 	#use Storable qw(dclone);	
 	use Voice;
+	use File::Basename ();
+	use File::Spec ();
+	use lib File::Spec->catdir(File::Basename::dirname(__FILE__), 'lib');
+	use Synth::Native ();
 	use Data::Dumper;	
 
 	has 'name'					=> ( is => 'rw', isa => 'Str', required => 0 );
@@ -49,9 +53,11 @@ sub mutate {
 
 
 sub render {
-	my ($self, $frequency, $samplerate, $bits) = @_;
+	my ($self, $frequency, $samplerate, $bits, $pcm) = @_;
 
 	$self->rendered_frequency($frequency);
+    my $native = Synth::Native::render($self,$frequency,$samplerate,$bits,$pcm);
+    return $native if defined $native;
 
 	if( @{$self->voices} > 1 ) {
 		# could run this across lots of CPUs

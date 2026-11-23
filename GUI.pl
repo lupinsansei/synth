@@ -596,85 +596,100 @@ sub play_selected_patch {
 
 sub draw_waveform {
 	my($canvas, $sample) = @_;
-	
-	# Clear the canvas
-	$canvas->delete('all');
-	return unless $sample && @{$sample->[0]} > 0;
-	
-	my $canvas_width = $canvas->width;  # Use actual allocated width
-	my $canvas_height = $canvas->height; # Use actual allocated height
-	
-	my $center_y = $canvas_height / 2;
-	
+
+    unless ($sample && @{$sample->[0]}) {
+        $canvas->delete('all');
+        delete $canvas->{waveform_size};
+        return;
+    }
+    my $canvas_width = $canvas->width;
+    my $canvas_height = $canvas->height;
+    my $center_y = $canvas_height / 2;
+    my $size = "${canvas_width}x${canvas_height}";
+    if (($canvas->{waveform_size} // '') ne $size) {
+        $canvas->delete('all');
+        draw_waveform_grid($canvas,$canvas_width,$canvas_height);
+        $canvas->{waveform_size} = $size;
+    }
+    my $left = $sample->[0];
+
 	# Find the last non-zero sample to trim silence
-	my $sample_count = @{$sample->[0]};
+	my $sample_count = @$left;
 	my $last_nonzero = $sample_count - 1;
-	
-	for my $i (reverse 0..$sample_count-1) {
-		if (abs($sample->[0]->[$i]) > 100) { # threshold for "silence"
+
+	for (my $i=$sample_count-1; $i>=0; --$i) {
+		if (abs($left->[$i]) > 100) { # threshold for "silence"
 			$last_nonzero = $i;
 			last;
 		}
 	}
-	
+
 	# Use only the non-silent portion
 	my $active_sample_count = $last_nonzero + 1;
 	my $display_samples = $canvas_width;  # Use the full canvas width
 	my $step = $active_sample_count / $display_samples;  # Allow fractional steps for better resolution
-	
+
+	# Find the maximum amplitude for scaling
+	my $max_amplitude = 0;
+	for my $i (0..$active_sample_count-1) {
+		my $amplitude = abs($left->[$i]);
+		$max_amplitude = $amplitude if $amplitude > $max_amplitude;
+	}
+
+	if ($max_amplitude == 0) {
+        $canvas->delete('trace');
+        return;
+    }
+
+	# Draw the waveform
+	my @points = ();
+	for my $x (0..$canvas_width-1) {  # Use full canvas width
+		my $sample_index = int($x * $step);
+		last if $sample_index >= $active_sample_count;
+
+		my $amplitude = $left->[$sample_index];
+		my $normalized = $amplitude / $max_amplitude;
+		my $y = $center_y - ($normalized * ($canvas_height / 2 - 10));
+
+		push @points, $x, $y;
+	}
+
+    if (@points < 4) {
+        $canvas->delete('trace');
+        return;
+    }
+    my @lines = $canvas->find('withtag','trace');
+    if (@lines) {
+        $canvas->coords($_,@points) for @lines;
+    } else {
+        for my $width (6,4,2,1) {
+            my $color = $width == 1 ? '#00ff00' : sprintf('#00%02x00',int(255/(8-$width)));
+            $canvas->createLine(@points,-width=>$width,-fill=>$color,-joinstyle=>'bevel',-tags=>['trace']);
+        }
+    }
+}
+
+sub draw_waveform_grid {
+    my ($canvas,$canvas_width,$canvas_height) = @_;
+    my $center_y = $canvas_height / 2;
 	# Draw background gradient effect
 	for my $y (0..$canvas_height) {
 		my $intensity = int(20 * (1 - abs($y - $center_y) / $center_y));
 		my $color = sprintf("#%02x%02x%02x", 0, $intensity, 0);
 		$canvas->createLine(0, $y, $canvas_width, $y, -fill => $color, -width => 1);
 	}
-	
+
 	# Draw grid lines
 	$canvas->createLine(0, $center_y, $canvas_width, $center_y, -fill => '#006600', -width => 2);
 	for my $i (1..4) {
 		my $y = ($canvas_height / 4) * $i;
 		$canvas->createLine(0, $y, $canvas_width, $y, -fill => '#003300', -width => 1);
 	}
-	
+
 	# Add vertical grid lines
 	for my $i (1..9) {
 		my $x = ($canvas_width / 10) * $i;
 		$canvas->createLine($x, 0, $x, $canvas_height, -fill => '#002200', -width => 1);
-	}
-	
-	# Find the maximum amplitude for scaling
-	my $max_amplitude = 0;
-	for my $i (0..$active_sample_count-1) {
-		my $amplitude = abs($sample->[0]->[$i]);
-		$max_amplitude = $amplitude if $amplitude > $max_amplitude;
-	}
-	
-	return if $max_amplitude == 0;
-	
-	# Draw the waveform
-	my @points = ();
-	for my $x (0..$canvas_width-1) {  # Use full canvas width
-		my $sample_index = int($x * $step);
-		last if $sample_index >= $active_sample_count;
-		
-		my $amplitude = $sample->[0]->[$sample_index];
-		my $normalized = $amplitude / $max_amplitude;
-		my $y = $center_y - ($normalized * ($canvas_height / 2 - 10));
-		
-		push @points, $x, $y;
-	}
-	
-	# Draw the main waveform line with glow effect
-	if (@points >= 4) {
-		# Draw glow layers
-		for my $width (6, 4, 2) {
-			my $alpha = int(255 / (8 - $width));
-			my $color = sprintf("#00%02x00", $alpha);
-			$canvas->createLine(@points, -fill => $color, -width => $width, -smooth => 1);
-		}
-		
-		# Draw the main bright line
-		$canvas->createLine(@points, -fill => '#00ff00', -width => 1, -smooth => 1);
 	}
 }
 

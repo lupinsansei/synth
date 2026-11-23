@@ -55,12 +55,12 @@ package Synth;
 
 		my $start = time();
 
-		my $sample;
+		my ($sample,$pcm);
 		if( scalar @{$frequencies} == 1 ) {
 
 			#print $frequencies->[0];
 
-			$sample = $patch->render( $frequencies->[0], $self->samplerate, $self->bits );
+			$sample = $patch->render( $frequencies->[0], $self->samplerate, $self->bits, \$pcm );
 		} else {
 
 			# could run this across lots of CPUs
@@ -82,7 +82,7 @@ package Synth;
         $patch->rendered_frequency($frequencies->[0]);
 
 		$patch->rendered_sample( $sample );
-		$patch->rendered_wave( sample2wav( $sample ) );
+		$patch->rendered_wave( defined($pcm) ? $pcm : sample2wav($sample) );
 
 		my $end = time();
 		printf("time: %.2f\n", $end - $start);
