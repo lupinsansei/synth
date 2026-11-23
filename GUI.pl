@@ -102,13 +102,16 @@ my $explorer_frame = $top_frame->Frame()->pack(-side => 'right', -anchor => 'ne'
 my $waveform_frame = $top_frame->Frame()->pack(-side => 'right', -fill => 'both', -expand => 1);
 my $waveform_canvas = $waveform_frame->Canvas(-height => 150, -bg => 'black', -relief => 'sunken', -bd => 2)->pack(-side => 'left', -fill => 'both', -expand => 1, -padx => 5);
 
-# Add a refresh button next to the waveform
-my $refresh_btn = $top_frame->Button(-text => "Refresh Waveform", -command => sub {
-	my $selected_patch = getSelectedPatch();
-	if ($selected_patch && $selected_patch->rendered_sample) {
-		draw_waveform($waveform_canvas, $selected_patch->rendered_sample);
-	}
-})->pack(-side => 'right', -padx => 5);
+my ($displayed_sample,$redraw_timer);
+sub queue_waveform_redraw {
+    $displayed_sample = shift if @_;
+    return if defined $redraw_timer;
+    $redraw_timer = $waveform_canvas->afterIdle(sub {
+        undef $redraw_timer;
+        draw_waveform($waveform_canvas,$displayed_sample);
+    });
+}
+$waveform_canvas->bind('<Configure>' => sub { queue_waveform_redraw() });
 
 # $mw->Button(
 #     -text    => 'Quit',
@@ -345,7 +348,7 @@ sub changePatch {
     prepare_keyboard($selected_patch);
 	
 	# Update waveform visualization
-	draw_waveform($waveform_canvas, $selected_patch->rendered_sample);
+	queue_waveform_redraw($selected_patch->rendered_sample);
 
 	$mw->Unbusy;
 	$mw->update;
@@ -383,7 +386,7 @@ sub AddVoicePanel {
     my $sample_control = VoiceSample::Tk->new(parent=>$table, voice=>$voice, patch=>$patch,
         synth=>sub { $synth }, before=>sub { $sequencer->stop },
         render=>sub { OnPatchChange($patch) },
-        recover=>sub { $mw->Unbusy; draw_waveform($waveform_canvas, $patch->rendered_sample); });
+        recover=>sub { $mw->Unbusy; queue_waveform_redraw($patch->rendered_sample); });
     $table->put($row_index,$col++, $sample_control->widget);
 
 	# Tuned	
@@ -465,7 +468,7 @@ sub OnPatchChange {
     prepare_keyboard($patch);
 	
 	# Update waveform visualization
-	draw_waveform($waveform_canvas, $patch->rendered_sample);
+	queue_waveform_redraw($patch->rendered_sample);
 
 	$mw->Unbusy;
 	$mw->update;
@@ -596,13 +599,10 @@ sub play_selected_patch {
 sub draw_waveform {
 	my($canvas, $sample) = @_;
 	
-	return unless $sample && @{$sample->[0]} > 0;
-	
 	# Clear the canvas
 	$canvas->delete('all');
+	return unless $sample && @{$sample->[0]} > 0;
 	
-	# Force canvas to update its dimensions  
-	$canvas->update;
 	my $canvas_width = $canvas->width;  # Use actual allocated width
 	my $canvas_height = $canvas->height; # Use actual allocated height
 	
