@@ -73,4 +73,43 @@ srand(71);
 my $rendered=$voice->render(8000,16,0.01,1000,1,0.5);
 srand(71);
 is_deeply($rendered,Voice::make_noise(8000,16,0.01,1000,0.25,0.125,0,0,1),'Voice dispatch applies multiplier to bipolar noise');
+# A tuned voice stops drawing at nonpositive pitch, but retains both buffers.
+for my $case (
+    ['zero initial pitch',0,0,0],
+    ['negative initial pitch',-10,0,0],
+    ['decay reaches zero',6,2,3],
+    ['decay passes zero',5,2,3],
+    ['decay on first frame',1,2,1],
+    ['zero after last frame',8,1,8],
+) {
+    my ($name,$pitch,$decay,$audible)=@$case;
+    srand(901);
+    my $wave=eval { Voice::make_noise(8000,16,0.001,$pitch,1,0.5,$decay,0,1) };
+    is($@,'',"$name renders without an exception");
+    next unless $wave;
+    for my $channel (0,1) {
+        is(scalar @{$wave->[$channel]},8,"$name channel $channel retains duration");
+        is_deeply([@{$wave->[$channel]}[$audible..7]],[(0)x(8-$audible)],
+            "$name channel $channel has a silent remainder") if $audible<8;
+    }
+    if ($audible) {
+        srand(901);
+        my $held=int(rand(32768))-16384;
+        is_deeply([@{$wave->[0]}[0..$audible-1]],[($held)x$audible],
+            "$name preserves positive-pitch sample/hold timing");
+    }
+    srand(901);
+    rand() if $audible; # These sub-rate cases draw only on the first frame.
+    my $expected=rand();
+    srand(901);
+    Voice::make_noise(8000,16,0.001,$pitch,1,1,$decay,0,1);
+    is(rand(),$expected,"$name consumes no random values after silence");
+}
+for my $pitch (0,-10) {
+    srand(77);
+    my $actual=Voice::make_noise(8000,16,0.001,$pitch,1,1,100,0,0);
+    srand(77);
+    my $expected=Voice::make_noise(8000,16,0.001,1000,1,1,100,0,0);
+    is_deeply($actual,$expected,"untuned noise ignores pitch $pitch");
+}
 done_testing;

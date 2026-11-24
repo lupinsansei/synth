@@ -81,8 +81,10 @@ _noise(UV frames, double frequency, double rate, double scale, double gain, doub
             int draw = 1;
             if (tuned) {
                 double period;
-                if (frequency == 0) croak("Illegal division by zero");
-                period = fabs(rate/frequency);
+                /* Match Perl: retain the zero-filled remainder and RNG state
+                   once tuned pitch reaches or crosses zero. */
+                if (frequency <= 0) break;
+                period = rate/frequency;
                 if (period < 1) croak("Illegal modulus zero");
                 draw = period >= frames ? i == 0 : i % (U32)period == 0;
             }

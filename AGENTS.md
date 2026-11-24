@@ -8,3 +8,12 @@ use the existing build.
 
 Tell the user when you rebuild and whether it succeeded. If a running synth
 has locked the DLL, ask the user to close it so you can retry.
+
+## Audio renderer changes
+
+Prefer XS for sample-generating and mixing hot loops. Keep the Perl renderer
+as a reference/fallback, and implement matching boundary behaviour in both.
+For DSP changes, rebuild XS and run the native parity tests against the compiled
+extension, comparing buffer lengths, samples, PCM and random-stream consumption.
+CI must verify that XS actually loads before running native regressions; a
+skipped optional-native test alone is not evidence of native correctness.

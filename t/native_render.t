@@ -31,6 +31,14 @@ for my $case (
     ['decay crossing zero and delay beyond window',8000,0.1,0.3,0,[
         Voice->new(volume_multiplier=>0.5,volume_decay=>0.15,freq_decay=>100),
         Voice->new(delay=>2000)]],
+    ['tuned noise zero multiplier',8000,0.01,0,1,[Voice->new(wave=>'noise',tuned=>1,freq_multiplier=>0)]],
+    ['tuned noise negative multiplier',8000,0.01,0,1,[Voice->new(wave=>'noise',tuned=>1,freq_multiplier=>-1)]],
+    ['tuned noise exact zero decay',8000,0.01,0,1,[Voice->new(wave=>'noise',tuned=>1,freq_multiplier=>0.125,freq_decay=>$root*0.125)]],
+    ['tuned noise decay crossing zero with delay',8000,0.01,0,1,[Voice->new(wave=>'noise',tuned=>1,freq_decay=>100,delay=>0.5)]],
+    ['stopped tuned noise preserves following random voice',8000,0.01,0,1,[
+        Voice->new(wave=>'noise',tuned=>1,freq_decay=>100),Voice->new(wave=>'noise')]],
+    ['untuned noise zero multiplier',8000,0.01,0,1,[Voice->new(wave=>'noise',freq_multiplier=>0)]],
+    ['untuned noise negative multiplier',8000,0.01,0,1,[Voice->new(wave=>'noise',freq_multiplier=>-1)]],
     ['clipping',48000,0.1,0,1,[Voice->new(volume_multiplier=>4)]],
     ['empty render',44100,0,0,0,[Voice->new]],
 ) {

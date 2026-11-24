@@ -221,6 +221,9 @@ sub make_noise {
 		last if $left_volume <= 0 && $right_volume <= 0;
 		my $v;
 		if( $tuned ) {
+			# Buffers are already zero-filled: stop before dividing or drawing
+			# once initial pitch or frequency decay reaches nonpositive pitch.
+			last if $frequency <= 0;
 			my $step = $samplerate/$frequency;
 			if ($i % $step == 0) {
 				$last_v = int(rand($scale)) - $noise_midpoint;

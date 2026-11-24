@@ -15,7 +15,14 @@ as does a checkout without the extension.
 Set `SYNTH_PERL_ONLY=1` to compare against the Perl renderer.
 
 Run `prove -I. -Ilib t/native_render.t` after building to check the native
-renderer against the Perl implementation.
+renderer against the Perl implementation. CI builds and loads the extension,
+then runs the full silent test suite with XS available. This exercises the actual
+native renderer rather than only the Perl fallback.
+
+Tuned noise with zero or negative pitch produces silence. If frequency decay
+reaches or crosses zero, the remaining frames stay silent without shortening the
+stereo buffers or consuming further random draws. Perl and XS share this rule;
+untuned noise still ignores pitch.
 
 *To Do*
 
