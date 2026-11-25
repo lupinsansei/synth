@@ -45,6 +45,12 @@ sub _voice {
  }
  return \%out;
 }
+sub _saved_chord_type {
+ my ($name)=@_;
+ return 'Major 7th' if defined $name && $name eq 'Fmaj7/C';
+ chord_intervals($name);
+ return $name;
+}
 sub _validate {
  my($data)=@_;
  _keys($data,[qw(format version selected_patch synth patches)],'bank');
@@ -57,8 +63,7 @@ sub _validate {
   my %p=(name=>_text($p->{name}//$name,'patch name'));
   for my $key(qw(length attack decay)) {$p{$key}=_number($p->{$key},0,60,$key) if exists $p->{$key};}
   if (exists $p->{baked_chord_type}) {
-   chord_intervals($p->{baked_chord_type});
-   $p{baked_chord_type}=$p->{baked_chord_type};
+   $p{baked_chord_type}=_saved_chord_type($p->{baked_chord_type});
   }
   $p{chord}=_boolean($p->{chord},'baked chord') if exists $p->{chord};
   die 'Patch needs 1..32 voices' unless ref($p->{voices}) eq 'ARRAY' && @{$p->{voices}} && @{$p->{voices}}<=32;
@@ -71,7 +76,7 @@ sub _validate {
  # Existing sample2wav packs stereo 16-bit PCM. Reject unsupported formats rather than silently misplaying them.
  die 'Only stereo 16-bit banks are supported' if (exists $settings->{bits} && $settings->{bits}!=16) || (exists $settings->{channels} && $settings->{channels}!=2);
  $settings{chord_memory}=_boolean($settings->{chord_memory},'chord memory') if exists $settings->{chord_memory};
- if(exists $settings->{chord_type}) {chord_intervals($settings->{chord_type});$settings{chord_type}=$settings->{chord_type};}
+ if(exists $settings->{chord_type}) {$settings{chord_type}=_saved_chord_type($settings->{chord_type});}
  if(exists $settings->{chord_mode}) {die 'Invalid chord playback mode' unless !ref($settings->{chord_mode}) && ($settings->{chord_mode} eq 'Together' || $settings->{chord_mode} eq 'Arpeggio');$settings{chord_mode}=$settings->{chord_mode};}
  if(exists $settings->{arpeggio_ms}) {$settings{arpeggio_ms}=_number($settings->{arpeggio_ms},40,1000,'arpeggio step');die 'Arpeggio step must be an integer' unless int($settings{arpeggio_ms})==$settings{arpeggio_ms};}
  my $selected=$data->{selected_patch}//(sort keys %out)[0];

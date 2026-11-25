@@ -117,7 +117,7 @@ arpeggio off before its higher tones; use Together or shorter spacing there.
 
 Enable **Baked chord** and choose a chord type to mix into the patch sample.
 The selection is saved per patch and uses the same menu choices as chord memory.
-Older patches default to Fmaj7/C (C3, E3, F3, A3). Playing a note transposes
+Older patches using the original Fmaj7/C voicing now use Major 7th. Playing a note transposes
 the whole sample from C3.
 The GUI's default bass patch now starts with that option off, so playback chord
 memory builds harmony from a single-note sample rather than stacking chords.

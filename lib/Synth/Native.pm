@@ -46,8 +46,19 @@ sub render {
     my $frames = int($rate*$patch->length);
     return unless $frames >= 0 && $frames <= 0x07ffffff;
     for my $voice (@{$patch->voices}) { return unless _eligible($voice) }
-    my @voices = map { _voice($_,$frames,$root,$rate,32768) } @{$patch->voices};
-    my ($samples,$bytes) = _finish(\@voices,$frames,$patch->attack*$rate,$patch->decay*$rate,defined $pcm);
+    my $chord = ref($root) eq 'ARRAY';
+    return if $chord && !__PACKAGE__->can('_finish_chord');
+    my ($samples,$bytes,@tones);
+    for my $frequency ($chord ? @$root : ($root)) {
+        my @voices = map { _voice($_,$frames,$frequency,$rate,32768) } @{$patch->voices};
+        my @envelope = ($patch->attack*$rate,$patch->decay*$rate);
+        if ($chord) {
+            push @tones, _finish(\@voices,$frames,@envelope,0,1);
+        } else {
+            ($samples,$bytes) = _finish(\@voices,$frames,@envelope,defined $pcm);
+        }
+    }
+    ($samples,$bytes) = _finish_chord(\@tones,$frames) if $chord;
     $$pcm = $bytes if defined $pcm;
     return $samples;
 }

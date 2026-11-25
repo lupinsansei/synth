@@ -39,9 +39,9 @@ for my $rate (8000,44100) {
     $synth->render_patch_as_middle_c($patch);
     cmp_ok(abs($patch->rendered_frequency-$root),'<',1e-9,"baked chord retains C3 reference at $rate Hz");
     my $reference=fixture();
-    my @tones=map {$reference->render(440*2**(($_-69)/12),$rate,16)} (48,52,53,57);
+    my @tones=map {$reference->render($_,$rate,16)} @{chord_frequencies($root,1,'Major 7th')};
     my $expected=Patch::mix_samples(\@tones);
-    is_deeply($patch->rendered_sample,$expected,'C3/E3/F3/A3 tones and mix remain unchanged');
+    is_deeply($patch->rendered_sample,$expected,'default major seventh matches the reference mix');
     is($patch->rendered_wave,Synth::sample2wav($expected),'PCM waveform unchanged by metadata correction');
     for my $ratio (1,2,0.5) {
         my $handles=$synth->play_patch($patch,'key',$root*$ratio);

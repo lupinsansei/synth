@@ -35,16 +35,8 @@ package Synth;
 	sub render_patch_as_middle_c {
 		my( $self, $patch ) = @_;
 		
-		my $frequencies;
-		
-		if ($patch->chord && $patch->baked_chord_type eq 'Fmaj7/C') {
-            # Preserve the exact tuning of previously saved baked samples.
-            $frequencies = [map { name2freq($_) } qw(c3 e3 f3 a3)];
-        } else {
-            $frequencies = chord_frequencies(name2freq('c3'), $patch->chord, $patch->baked_chord_type);
-        }
-		
-		$self->render_patch($patch, $frequencies);		
+		my $frequencies = chord_frequencies(name2freq('c3'), $patch->chord, $patch->baked_chord_type);
+        $self->render_patch($patch, $frequencies);
 	}
 
 	sub render_patch {
@@ -63,18 +55,11 @@ package Synth;
 			$sample = $patch->render( $frequencies->[0], $self->samplerate, $self->bits, \$pcm );
 		} else {
 
-			# could run this across lots of CPUs
-			my @samples = ();
-
-			foreach my $frequency (@{$frequencies}) {
-
-				#print $frequency, "\t";
-
-				$sample = $patch->render( $frequency, $self->samplerate, $self->bits );
-				push( @samples, $sample );
-			}
-
-			$sample = Patch::mix_samples( \@samples );
+            $sample = Synth::Native::render($patch,$frequencies,$self->samplerate,$self->bits,\$pcm);
+            unless (defined $sample) {
+                my @tones = map { $patch->render($_,$self->samplerate,$self->bits) } @$frequencies;
+                $sample = Patch::mix_samples(\@tones);
+            }
 		}
 
         # Each component render overwrites the patch reference. The mixed

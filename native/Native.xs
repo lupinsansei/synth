@@ -28,6 +28,30 @@ static const double *samples_at(pTHX_ AV *buffers, SSize_t i, size_t expected) {
     return (const double *)data;
 }
 
+static SV *stereo_output(pTHX_ const double *sum, UV frames, SSize_t count, int want_pcm, SV **samples) {
+    AV *left, *right, *pair;
+    SV *pcm;
+    UV i;
+    left=newAV(); right=newAV(); pair=newAV();
+    av_push(pair,newRV_noinc((SV *)left));
+    av_push(pair,newRV_noinc((SV *)right));
+    *samples = sv_2mortal(newRV_noinc((SV *)pair));
+    pcm = want_pcm ? sv_2mortal(zero_buffer(aTHX_ frames*4)) : &PL_sv_undef;
+    if (frames) { av_extend(left,frames-1); av_extend(right,frames-1); }
+    for (i=0; i<frames; ++i) {
+        double value=sum[i]/count;
+        av_push(left,newSVnv(value));
+        av_push(right,newSVnv(value));
+        if (want_pcm) {
+            int s = value != value ? 0 : value>32767 ? 32767 : value < -32768 ? -32768 : (int)value;
+            unsigned char *p=(unsigned char *)SvPVX(pcm)+4*i;
+            p[0]=p[2]=(unsigned char)s;
+            p[1]=p[3]=(unsigned char)((unsigned int)s >> 8);
+        }
+    }
+    return pcm;
+}
+
 MODULE = Synth::Native    PACKAGE = Synth::Native
 PROTOTYPES: DISABLE
 
@@ -102,7 +126,7 @@ _noise(UV frames, double frequency, double rate, double scale, double gain, doub
         XPUSHs(buffer);
 
 void
-_finish(AV *voices, UV frames, double attack_end, double decay_frames, int want_pcm)
+_finish(AV *voices, UV frames, double attack_end, double decay_frames, int want_pcm, int packed_only=0)
     PPCODE:
         size_t bytes = buffer_size(aTHX_ frames);
         SSize_t count = av_len(voices)+1, v;
@@ -110,8 +134,6 @@ _finish(AV *voices, UV frames, double attack_end, double decay_frames, int want_
         double decay_length = decay_end-attack_end;
         SV *mix;
         double *sum;
-        AV *left, *right, *pair;
-        SV *pcm;
         UV i;
         if (!count) croak("Missing native voices");
         mix = sv_2mortal(zero_buffer(aTHX_ bytes));
@@ -126,22 +148,32 @@ _finish(AV *voices, UV frames, double attack_end, double decay_frames, int want_
                 sum[i] += wave[i]*gain;
             }
         }
-        left=newAV(); right=newAV(); pair=newAV();
-        av_push(pair,newRV_noinc((SV *)left));
-        av_push(pair,newRV_noinc((SV *)right));
-        EXTEND(SP,2);
-        PUSHs(sv_2mortal(newRV_noinc((SV *)pair)));
-        pcm = want_pcm ? sv_2mortal(zero_buffer(aTHX_ frames*4)) : &PL_sv_undef;
-        if (frames) { av_extend(left,frames-1); av_extend(right,frames-1); }
-        for (i=0; i<frames; ++i) {
-            double value=sum[i]/count;
-            av_push(left,newSVnv(value));
-            av_push(right,newSVnv(value));
-            if (want_pcm) {
-                int s = value != value ? 0 : value>32767 ? 32767 : value < -32768 ? -32768 : (int)value;
-                unsigned char *p=(unsigned char *)SvPVX(pcm)+4*i;
-                p[0]=p[2]=(unsigned char)s;
-                p[1]=p[3]=(unsigned char)((unsigned int)s >> 8);
-            }
+        if (packed_only) {
+            for (i=0; i<frames; ++i) sum[i] /= count;
+            XPUSHs(mix);
+        } else {
+            SV *samples;
+            SV *pcm = stereo_output(aTHX_ sum, frames, count, want_pcm, &samples);
+            EXTEND(SP,2);
+            PUSHs(samples);
+            PUSHs(pcm);
         }
+
+void
+_finish_chord(AV *tones, UV frames)
+    PPCODE:
+        size_t bytes = buffer_size(aTHX_ frames);
+        SSize_t count = av_len(tones)+1, tone;
+        SV *samples, *pcm;
+        SV *mix = sv_2mortal(zero_buffer(aTHX_ bytes));
+        double *sum = (double *)SvPVX(mix);
+        UV i;
+        if (!count) croak("Missing native chord tones");
+        for (tone=0; tone<count; ++tone) {
+            const double *wave = samples_at(aTHX_ tones,tone,bytes);
+            for (i=0; i<frames; ++i) sum[i] += wave[i];
+        }
+        pcm = stereo_output(aTHX_ sum, frames, count, 1, &samples);
+        EXTEND(SP,2);
+        PUSHs(samples);
         PUSHs(pcm);

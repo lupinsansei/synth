@@ -81,7 +81,7 @@ sub _apply {
     my ($self,$patch,$data)=@_;
     my $voices=[map{_voice($_)}@{$data->{voices}}];
     $patch->voices($voices);
-    $patch->baked_chord_type($data->{baked_chord_type} // 'Fmaj7/C');
+    $patch->baked_chord_type($data->{baked_chord_type} // 'Major 7th');
     for my $key(qw(length attack decay chord)) {$patch->$key($data->{$key}//0);}
     delete @{$patch}{qw(rendered_wave rendered_sample rendered_frequency)};
 }
