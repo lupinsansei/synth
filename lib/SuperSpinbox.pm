@@ -51,6 +51,17 @@ sub new {
         }
     }
     my $entry = $self->{entry} = $frame->Entry(-textvariable => \$self->{typed}, -width => $column, -font => $font);
+    my $spin = $self->{digits}{0};
+    $self->{foreground} = $spin->cget('-foreground');
+    $self->{button_background} = $spin->cget('-buttonbackground');
+    $self->{up_relief} = $spin->cget('-buttonuprelief');
+    $self->{down_relief} = $spin->cget('-buttondownrelief');
+    my $field = $spin->cget('-readonlybackground') || $spin->cget('-background');
+    my @field_rgb = $spin->rgb($field);
+    my @disabled_rgb = $spin->rgb($spin->cget('-disabledforeground'));
+    $self->{muted} = sprintf '#%04x%04x%04x',
+        map { ($field_rgb[$_] + $disabled_rgb[$_]) / 2 } 0..2;
+    $self->{field_background} = $field;
     $self->{columns} = $column;
     $self->{background} = $entry->cget('-background');
     $entry->bind('<Return>' => sub { $self->_finish(1); Tk->break });
@@ -99,9 +110,26 @@ sub refresh {
     $self->{sign}->set(substr($formatted,0,1)) if $self->{sign};
     my @digits = substr($formatted,1) =~ /(\d)/g;
     my $place = $self->{model}{integers}-1;
+    my $last_place = 0;
+    for my $index (reverse 0..$#digits) {
+        next unless $digits[$index];
+        $last_place = $place - $index;
+        last;
+    }
+    my $leading = 1;
     for my $digit (@digits) {
+        $leading = 0 if $digit || $place <= 0;
+        my $dim = $leading || $place < $last_place;
+        my $spin = $self->{digits}{$place};
+        $spin->configure(
+            -foreground => $dim ? $self->{muted} : $self->{foreground},
+            -buttonbackground => $dim ? $self->{field_background} : $self->{button_background},
+            -buttonuprelief => $dim ? 'flat' : $self->{up_relief},
+            -buttondownrelief => $dim ? 'flat' : $self->{down_relief},
+        );
         $self->{shown}{$place} = $digit;
-        $self->{digits}{$place--}->set($digit);
+        $spin->set($digit);
+        $place--;
     }
     $self->{typed} = $self->{model}->value;
     $self->{entry}->configure(-background => $self->{background});
