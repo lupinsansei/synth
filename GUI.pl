@@ -15,6 +15,7 @@ use warnings;
 use Data::Dumper;
 
 use Tk;
+use Tk::Balloon;
 use Tk::Table;
 use Tk::Dialog;
 use Tk::Spinbox;
@@ -74,6 +75,7 @@ my $synth = new Synth(
 );
 
 my $mw = MainWindow->new;
+my $tips = $mw->Balloon(-state => 'balloon');
 #my $c = $mw->Canvas(-width => 300, -height => 200); # set width https://www.perlmonks.org/?node_id=624997
 #$c->pack;
 
@@ -362,20 +364,19 @@ sub changePatch {
         -command => sub { OnPatchChange($selected_patch) if $selected_patch->chord },
     ));
 
-    $row_index++;
+    my $voices = $selected_patch->voices;
+    my $add = $table->Button(
+        -text => 'Add',
+        -state => @$voices < 32 ? 'normal' : 'disabled',
+        -command => sub {
+            push @$voices, Voice->new;
+            changePatch();
+        },
+    );
+    $tips->attach($add, -balloonmsg => 'Add an oscillator to this patch. Its sound is mixed with the other oscillators.');
+    $table->put($row_index, 3, $add);
 
-    # foreach voice in patch
-	
-	for(my $i=0; $i<@{$selected_patch->voices}; $i++) {
-
-		my $voice = $selected_patch->voices->[$i];
-
-		#print Dumper( $voice );
-
-		# rebuild it
-		AddTableHeader($table, $row_index++, ["Wave", "Tuned", "f X", "v X", "f Decay", "v Decay", "Delay"]);
-		AddVoicePanel($table, $row_index++, $selected_patch, $voice);
-	}
+    $row_index = AddVoiceRows($table, $row_index, $selected_patch, $voices, 0);
 
 	$synth->render_patch_as_middle_c($selected_patch) unless $skip_render;
 	
@@ -385,33 +386,47 @@ sub changePatch {
 
 }
 
+sub AddVoiceRows {
+    my ($table, $row, $patch, $voices, $depth) = @_;
+    for my $index (0..$#$voices) {
+        my $voice = $voices->[$index];
+        my $header = $table->Frame;
+        my $label = $depth ? 'Modulator' : 'Oscillator';
+        my $name = "$label " . ($index + 1);
+        $header->Label(-text => $name)->pack(-side => 'left');
+        my $remove = $header->Button(
+            -text => 'Remove',
+            -state => $depth || @$voices > 1 ? 'normal' : 'disabled',
+            -command => sub {
+                my $target = $name;
+                $target .= ' and all its modulators' if @{$voice->modulators || []};
+                my $answer = $mw->messageBox(-title => "Remove $name", -icon => 'question',
+                    -type => 'YesNo', -default => 'No', -message => "Remove $target from this patch?");
+                return unless lc($answer // '') eq 'yes';
+                splice @$voices, $index, 1;
+                changePatch();
+            },
+        )->pack(-side => 'left');
+        $tips->attach($remove, -balloonmsg => "Remove $name and any modulators attached to it.");
+        my $add_mod = $header->Button(
+            -text => 'Add',
+            -state => $depth < 8 ? 'normal' : 'disabled',
+            -command => sub {
+                $voice->modulators([]) unless $voice->modulators;
+                push @{$voice->modulators}, Voice->new(volume_multiplier => 0.01);
+                changePatch();
+            },
+        )->pack(-side => 'left');
+        $tips->attach($add_mod, -balloonmsg => "Add an FM modulator to vary the frequency of $name.");
+        AddTableHeader($table, ++$row, [$header, 'Tuned', 'f X', 'v X', 'f Decay', 'v Decay', 'Delay'], $depth);
+        AddVoicePanel($table, ++$row, $patch, $voice, $depth);
+        $row = AddVoiceRows($table, $row, $patch, $voice->modulators, $depth+1) if $voice->modulators;
+    }
+    return $row;
+}
+
 sub AddVoicePanel {
-	my $table = shift;
-	my $row_index = shift;
-	my $patch = shift;
-	my $voice = shift;
-	my $indent = shift;
-
-	$indent = 0 unless defined($indent);
-
-	my $col = 0;
-
-	$col += $indent;
-
-	# create new voice data structure, with their defaults
-	# $voices->[$row_index-1] = {
-	#   wave => 'sine',
-	#   f_decay => 0,
-	#   v_decay => 0,
-	#   tuned => 0,
-	#   f_multiplier => 0,
-	#   v_multiplier => 0,
-	#   modulators => []
-	# };
-
-	#print "AddVoicePanel($row_index)\n";
-
-	#$table->put($row_index,$col++,"$row_index");  # simple Label
+    my ($table, $row_index, $patch, $voice, $col) = @_;
 
 	# wave menu
     my $sample_control = VoiceSample::Tk->new(parent=>$table, voice=>$voice, patch=>$patch,
@@ -450,31 +465,6 @@ sub AddVoicePanel {
 		build_super_number_picker($table, 3, \$voice->{delay}, sub{ OnPatchChange($patch) }, 0 )
 	);
 
-	# modulators
-	if( $voice->modulators ) {
-		$indent++;
-
-		for(my $i=0; $i<@{$voice->modulators}; $i++) {
-
-
-			my $modulator = $voice->modulators->[$i];
-
-			AddTableHeader($table, ++$row_index, ["Wave", "Tuned", "f X", "v X", "f Decay", "v Decay", "Delay"], $indent);
-			AddVoicePanel($table, ++$row_index, $patch, $modulator, $indent);
-		}
-	}
-
-  # add row button
-  # $table->put($row_index,$col++,$table->Button(
-  #     -text    => '>',
-  #     -command => sub { AddVoicePanel($row_index+1, $voices, $table, ++$indent) },
-  # ));
-	#
-  # # add modulators row button
-  # $table->put($row_index,$col++,$table->Button(
-  #     -text    => '+',
-  #     -command => sub { AddVoicePanel($row_index+1, $voices, $table) },
-  # ));
 
 }
 
