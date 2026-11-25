@@ -4,6 +4,7 @@ use lib "$FindBin::Bin", "$FindBin::Bin/lib";
 use SuperSpinbox;
 use MiniSequencer::Tk;
 use FMPatchExplorer::Tk;
+use PatchBank;
 use PatchBank::Tk;
 use WavExport::Tk;
 use VoiceSample::Tk;
@@ -364,19 +365,23 @@ sub changePatch {
         -command => sub { OnPatchChange($selected_patch) if $selected_patch->chord },
     ));
 
+    my $limit = PatchBank::MAX_VOICES;
+    my $capacity_message = PatchBank->voice_count($synth->Patches) >= $limit
+        ? "This bank has reached its $limit-voice limit. Remove an oscillator or modulator to add another."
+        : '';
     my $voices = $selected_patch->voices;
     my $add = $table->Button(
         -text => 'Add',
-        -state => @$voices < 32 ? 'normal' : 'disabled',
+        -state => !$capacity_message && @$voices < 32 ? 'normal' : 'disabled',
         -command => sub {
             push @$voices, Voice->new;
             changePatch();
         },
     );
-    $tips->attach($add, -balloonmsg => 'Add an oscillator to this patch. Its sound is mixed with the other oscillators.');
+    $tips->attach($add, -balloonmsg => $capacity_message || 'Add an oscillator to this patch. Its sound is mixed with the other oscillators.');
     $table->put($row_index, 3, $add);
 
-    $row_index = AddVoiceRows($table, $row_index, $selected_patch, $voices, 0);
+    $row_index = AddVoiceRows($table, $row_index, $selected_patch, $voices, 0, $capacity_message);
 
 	$synth->render_patch_as_middle_c($selected_patch) unless $skip_render;
 	
@@ -387,7 +392,7 @@ sub changePatch {
 }
 
 sub AddVoiceRows {
-    my ($table, $row, $patch, $voices, $depth) = @_;
+    my ($table, $row, $patch, $voices, $depth, $capacity_message) = @_;
     for my $index (0..$#$voices) {
         my $voice = $voices->[$index];
         my $header = $table->Frame;
@@ -410,17 +415,17 @@ sub AddVoiceRows {
         $tips->attach($remove, -balloonmsg => "Remove $name and any modulators attached to it.");
         my $add_mod = $header->Button(
             -text => 'Add',
-            -state => $depth < 8 ? 'normal' : 'disabled',
+            -state => !$capacity_message && $depth < 8 ? 'normal' : 'disabled',
             -command => sub {
                 $voice->modulators([]) unless $voice->modulators;
                 push @{$voice->modulators}, Voice->new(volume_multiplier => 0.01);
                 changePatch();
             },
         )->pack(-side => 'left');
-        $tips->attach($add_mod, -balloonmsg => "Add an FM modulator to vary the frequency of $name.");
+        $tips->attach($add_mod, -balloonmsg => $capacity_message || "Add an FM modulator to vary the frequency of $name.");
         AddTableHeader($table, ++$row, [$header, 'Tuned', 'f X', 'v X', 'f Decay', 'v Decay', 'Delay'], $depth);
         AddVoicePanel($table, ++$row, $patch, $voice, $depth);
-        $row = AddVoiceRows($table, $row, $patch, $voice->modulators, $depth+1) if $voice->modulators;
+        $row = AddVoiceRows($table, $row, $patch, $voice->modulators, $depth+1, $capacity_message) if $voice->modulators;
     }
     return $row;
 }

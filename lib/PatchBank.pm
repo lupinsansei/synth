@@ -11,6 +11,19 @@ use ChordMemory qw(chord_intervals);
 use FMPatchExplorer;
 my $FORMAT='perl-synth-patch-bank';
 my $MAX_BYTES=8*1024*1024;
+use constant MAX_VOICES => 256;
+
+sub voice_count {
+ my ($class,$patches)=@_;
+ my @pending=map { @{$_->voices} } values %$patches;
+ my $count=0;
+ while (my $voice=pop @pending) {
+  ++$count;
+  push @pending,@{$voice->modulators || []};
+ }
+ return $count;
+}
+
 sub _number {
  my($v,$min,$max,$label)=@_;
  die "Invalid $label" unless defined $v && !ref($v) && looks_like_number($v) && isfinite($v) && $v>=$min && $v<=$max;
@@ -30,7 +43,7 @@ sub _text {
  return $v;
 }
 sub _voice {
- my($v,$depth,$count)=@_;die 'Patch has too many/deeply nested voices' if $depth>8 || ++$$count>256;
+ my($v,$depth,$count)=@_;die 'Patch has too many/deeply nested voices' if $depth>8 || ++$$count>MAX_VOICES;
  _keys($v,[qw(wave file tuned freq_multiplier volume_multiplier freq_decay volume_decay delay modulators)],'voice');
  my %out;my $wave=$v->{wave}//'sine';die 'Unsupported waveform' unless $wave =~ /\A(?:sine|noise|file)\z/;$out{wave}=$wave;
  for my $key(qw(freq_multiplier volume_multiplier freq_decay volume_decay delay)) {
@@ -125,7 +138,7 @@ sub _legacy {
   my $p=$old->{Patches}{$name};die 'Invalid legacy patch' unless ref($p) eq 'HASH';
   my $copy={map{exists $p->{$_}?($_=>$p->{$_}):()}qw(name length attack decay chord baked_chord_type voices)};
   my $walk;$walk=sub{
-   my($v,$depth)=@_;die 'Legacy voices too deeply nested or numerous' if $depth>8 || ++$count>256;die 'Invalid legacy voice' unless ref($v) eq 'HASH';
+   my($v,$depth)=@_;die 'Legacy voices too deeply nested or numerous' if $depth>8 || ++$count>MAX_VOICES;die 'Invalid legacy voice' unless ref($v) eq 'HASH';
    my $out={map{defined $v->{$_}?($_=>$v->{$_}):()}qw(wave file tuned freq_multiplier volume_multiplier freq_decay volume_decay delay)};
    if ($v->{modulators}) {die 'Invalid legacy modulators' unless ref($v->{modulators}) eq 'ARRAY';$out->{modulators}=[map{$walk->($_,$depth+1)}@{$v->{modulators}}];}return $out;
   };

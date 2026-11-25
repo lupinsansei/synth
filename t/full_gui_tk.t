@@ -313,6 +313,30 @@ my $constructor=MainWindow->can('new');
    is(scalar @{$mods->[0]->modulators},0,'nested modulator removed independently');
    $operator_button->($carrier,'Remove');
    is_deeply($voices,\@original,'removing that oscillator preserves the original voices');
+   my $bank = $restored->Patches;
+   my $padding = 255 - PatchBank->voice_count($bank);
+   $bank->{padding} = Patch->new(name=>'padding',voices=>[
+       Voice->new(modulators=>[map { Voice->new } 2..$padding])
+   ]);
+   main::changePatch('no-render');
+   my $add_buttons = sub {
+       @widgets=(); $walk->($window);
+       return grep { $_->isa('Tk::Button') && $_->cget('-text') eq 'Add' } @widgets;
+   };
+   my ($patch_add) = grep { $_->parent->isa('Tk::Table') } $add_buttons->();
+   is($patch_add->cget('-state'),'normal','oscillator Add enabled at 255 across patches');
+   $patch_add->invoke;
+   is(PatchBank->voice_count($bank),256,'oscillator fills last bank slot');
+   my @at_limit = $add_buttons->();
+   ok(@at_limit > 1 && !(grep { $_->cget('-state') ne 'disabled' } @at_limit),
+       'both kinds of Add disabled at capacity');
+   $_->invoke for @at_limit;
+   ok(PatchBank->capture($restored),'bank at limit still passes save validation');
+   $operator_button->('Oscillator '.scalar(@$voices),'Remove');
+   $operator_button->('Oscillator 1','Add');
+   is(PatchBank->voice_count($bank),256,'removal frees a slot for a modulator');
+   push @{$bank->{padding}->voices}, Voice->new;
+   ok(!eval { PatchBank->capture($restored); 1 },'save validator rejects 257 across patches');
    $window->destroy;
  };
  do "$FindBin::Bin/../GUI.pl";
