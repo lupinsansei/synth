@@ -59,8 +59,8 @@ sub generate {
 }
 sub _voice_snapshot {
     my ($voice)=@_; my %data;
-    for my $key(qw(wave file tuned freq_multiplier volume_multiplier freq_decay volume_decay delay)) {
-        $data{$key}=$voice->{$key} if defined $voice->{$key};
+    for my $key(qw(wave file tuned freq_multiplier volume_multiplier freq_decay volume_decay delay pan)) {
+        $data{$key}=$voice->{$key} if defined($voice->{$key}) || ($key eq 'pan' && exists($voice->{$key}));
     }
     $data{modulators}=[map{_voice_snapshot($_)}@{$voice->{modulators}}] if $voice->{modulators};
     return \%data;
@@ -108,6 +108,17 @@ sub _perform {
     else {push @{$state->{history}},$previous;shift @{$state->{history}} if @{$state->{history}}>32;}
     $state->{anchor}=$new_anchor?dclone($new_anchor):undef;
     return 1;
+}
+# A pan edit participates in the same transactional Undo history as new sounds.
+sub set_pan {
+    my ($self,$patch,$index,$pan,%args)=@_;
+    die 'Unknown oscillator' unless defined($index) && $index =~ /\A[0-9]+\z/ && $index < @{$patch->voices};
+    require Voice;
+    Voice->new(pan=>$pan); # validate before replacing the patch or touching history
+    return 0 if $patch->voices->[$index]->pan == $pan;
+    my $data=$self->snapshot($patch);
+    $data->{voices}[$index]{pan}=$pan;
+    return $self->_perform($patch,$data,undef,$args{preview},0);
 }
 sub new_sound {
     my ($self,$patch,%args)=@_;my $data=$self->generate(%args);

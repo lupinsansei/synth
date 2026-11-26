@@ -13,6 +13,10 @@ subtype 'VoiceDelayMilliseconds', as 'Num',
     where { isfinite($_) && $_ >= 0 },
     message { 'Voice delay must be finite and non-negative (milliseconds)' };
 
+subtype 'VoicePan', as 'Num',
+    where { isfinite($_) && $_ >= -1 && $_ <= 1 },
+    message { 'Voice pan must be finite and between -1 (Left) and 1 (Right)' };
+
 use experimental qw( switch );
 
 has 'wave'					=> ( is => 'rw', isa => 'Str', default => 'sine' );
@@ -28,7 +32,19 @@ has 'freq_decay'		=> ( is => 'rw', isa => 'Num', default => 0 );
 # delay in ms until the sounds starts - can be used to play 2 sounds at once in one patch with the mixing
 has 'delay'				=> ( is => 'rw', isa => 'VoiceDelayMilliseconds', default => 0 );
 
+has 'pan' => (is => 'rw', isa => 'VoicePan', default => 0);
+
 has 'modulators'		=> ( is => 'rw', isa => 'ArrayRef[Voice]', required => 0 );
+
+# Stereo balance belongs to root oscillators, never the FM modulation signal.
+# Centre retains the existing gain and preserves both channels of stereo WAVs.
+sub pan_gains {
+    my ($self) = @_;
+    my $pan = $self->pan;
+    die "Voice pan must be finite and between -1 (Left) and 1 (Right)"
+        unless defined($pan) && looks_like_number($pan) && isfinite($pan) && $pan >= -1 && $pan <= 1;
+    return ($pan > 0 ? 1-$pan : 1, $pan < 0 ? 1+$pan : 1);
+}
 
 sub mutate {
 	my $self = shift;

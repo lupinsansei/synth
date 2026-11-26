@@ -305,3 +305,24 @@ xvfb-run -a prove -I. -Ilib t/voice_sample.t t/voice_sample_tk.t t/full_gui_tk.t
 These cover real selection/rendering, cancellation, invalid formats/files,
 nested voices, partial render rollback, bank references and actual Tk callbacks.
 They never open audio hardware. Native Windows audio still needs a listening test.
+
+
+### Oscillator stereo pan
+
+Each root oscillator has a **Pan** menu: **Left**, **Centre**, or **Right**.
+Centre is the default and leaves existing patches unchanged. Pan is applied
+as stereo balance after FM synthesis, amplitude decay, delay and the patch
+envelope, so moving a sound never changes its modulation depth or cuts off a
+right-panned decaying note. Modulators do not have a Pan control.
+
+Stereo WAVs retain their separate left and right channels: Centre preserves
+both, Left silences only the right channel, and Right silences only the left.
+This is balance, not a stereo-to-mono downmix. Bank files store numeric `pan`
+from -1 to +1 (intermediate positions are also supported by the renderer).
+Older banks without `pan` load at Centre. Pan edits support **Undo**; saved
+banks, explorer variations and Undo after generating a new sound retain pan.
+
+Rebuild the native renderer after updating: `perl native/build.pl`, then restart
+the synth. Both the Perl fallback and compiled XS mixer support stereo pan,
+including baked chords. Silent regression coverage: `prove -I. -Ilib t/pan.t
+t/native_render.t` and the headless full-GUI test.

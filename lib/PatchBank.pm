@@ -44,11 +44,12 @@ sub _text {
 }
 sub _voice {
  my($v,$depth,$count)=@_;die 'Patch has too many/deeply nested voices' if $depth>8 || ++$$count>MAX_VOICES;
- _keys($v,[qw(wave file tuned freq_multiplier volume_multiplier freq_decay volume_decay delay modulators)],'voice');
+ _keys($v,[qw(wave file tuned freq_multiplier volume_multiplier freq_decay volume_decay delay pan modulators)],'voice');
  my %out;my $wave=$v->{wave}//'sine';die 'Unsupported waveform' unless $wave =~ /\A(?:sine|noise|file)\z/;$out{wave}=$wave;
  for my $key(qw(freq_multiplier volume_multiplier freq_decay volume_decay delay)) {
   $out{$key}=_number($v->{$key},$key eq 'delay' ? 0 : -1000,1000,$key) if exists $v->{$key};
  }
+ $out{pan}=_number($v->{pan},-1,1,'pan') if exists $v->{pan};
  $out{tuned}=_boolean($v->{tuned},'tuned') if exists $v->{tuned};
  if(defined $v->{file} && $v->{file} ne '') {$out{file}=_text($v->{file},'sample path');}
  die 'File voice needs a sample path' if $wave eq 'file' && !length($out{file}//'');
@@ -139,7 +140,7 @@ sub _legacy {
   my $copy={map{exists $p->{$_}?($_=>$p->{$_}):()}qw(name length attack decay chord baked_chord_type voices)};
   my $walk;$walk=sub{
    my($v,$depth)=@_;die 'Legacy voices too deeply nested or numerous' if $depth>8 || ++$count>MAX_VOICES;die 'Invalid legacy voice' unless ref($v) eq 'HASH';
-   my $out={map{defined $v->{$_}?($_=>$v->{$_}):()}qw(wave file tuned freq_multiplier volume_multiplier freq_decay volume_decay delay)};
+   my $out={map{defined $v->{$_}?($_=>$v->{$_}):()}qw(wave file tuned freq_multiplier volume_multiplier freq_decay volume_decay delay pan)};
    if ($v->{modulators}) {die 'Invalid legacy modulators' unless ref($v->{modulators}) eq 'ARRAY';$out->{modulators}=[map{$walk->($_,$depth+1)}@{$v->{modulators}}];}return $out;
   };
   die 'Invalid legacy voices' unless ref($copy->{voices}) eq 'ARRAY';$copy->{voices}=[map{$walk->($_,0)}@{$copy->{voices}}];$patches{$name}=$copy;

@@ -423,15 +423,16 @@ sub AddVoiceRows {
             },
         )->pack(-side => 'left');
         $tips->attach($add_mod, -balloonmsg => $capacity_message || "Add an FM modulator to vary the frequency of $name.");
-        AddTableHeader($table, ++$row, [$header, 'Tuned', 'f X', 'v X', 'f Decay', 'v Decay', 'Delay'], $depth);
-        AddVoicePanel($table, ++$row, $patch, $voice, $depth);
+        AddTableHeader($table, ++$row, [$header, 'Tuned', 'f X', 'v X', 'f Decay', 'v Decay', 'Delay', ($depth ? () : 'Pan')], $depth);
+        AddVoicePanel($table, ++$row, $patch, $voice, $depth, $index);
         $row = AddVoiceRows($table, $row, $patch, $voice->modulators, $depth+1, $capacity_message) if $voice->modulators;
     }
     return $row;
 }
 
 sub AddVoicePanel {
-    my ($table, $row_index, $patch, $voice, $col) = @_;
+    my ($table, $row_index, $patch, $voice, $col, $voice_index) = @_;
+    my $col_depth = $col;
 
 	# wave menu
     my $sample_control = VoiceSample::Tk->new(parent=>$table, voice=>$voice, patch=>$patch,
@@ -470,6 +471,35 @@ sub AddVoicePanel {
 		build_super_number_picker($table, 3, \$voice->{delay}, sub{ OnPatchChange($patch) }, 0 )
 	);
 
+    if (!$col_depth) {
+        my $pan_value = $voice->pan;
+        my $pan_label = 'Centre';
+        my $pan_ready = 0;
+        my $pan = $table->Optionmenu(
+            -variable => \$pan_value,
+            -textvariable => \$pan_label,
+            -options => [['Left', -1], ['Centre', 0], ['Right', 1]],
+            -command => sub {
+                return unless $pan_ready;
+                my $ok = eval {
+                    $sequencer->stop;
+                    $explorer->{manager}->set_pan($patch, $voice_index, $pan_value,
+                        preview => sub { OnPatchChange($patch) });
+                    1;
+                };
+                my $error = $@;
+                changePatch('no-render');
+                $explorer->{buttons}{undo}->configure(-state => $explorer->{manager}->can_undo($patch) ? 'normal' : 'disabled');
+                $explorer->{status} = $ok ? 'Oscillator pan changed. Undo restores its previous position.' : 'Sound unchanged: '.$error;
+            },
+        );
+        $pan_value = $voice->pan;
+        $pan_label = $pan_value == -1 ? 'Left' : $pan_value == 1 ? 'Right' : $pan_value == 0 ? 'Centre'
+            : sprintf('%s %g%%', $pan_value < 0 ? 'L' : 'R', abs($pan_value)*100);
+        $pan_ready = 1;
+        $tips->attach($pan, -balloonmsg => 'Stereo balance after FM: Left, Centre or Right. Centre preserves the original sound and stereo samples.');
+        $table->put($row_index, $col++, $pan);
+    }
 
 }
 

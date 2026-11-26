@@ -40,6 +40,10 @@ for my $case (
     ['untuned noise zero multiplier',8000,0.01,0,1,[Voice->new(wave=>'noise',freq_multiplier=>0)]],
     ['untuned noise negative multiplier',8000,0.01,0,1,[Voice->new(wave=>'noise',freq_multiplier=>-1)]],
     ['clipping',48000,0.1,0,1,[Voice->new(volume_multiplier=>4)]],
+    ['hard right with decay and delayed FM',8000,0.02,0.001,0.02,[
+        Voice->new(pan=>1,volume_decay=>0.01,delay=>1,modulators=>[Voice->new(pan=>1,volume_multiplier=>0.03)])]],
+    ['split stereo with clipping and noise',16000,0.02,0.001,0.02,[
+        Voice->new(pan=>-1,volume_multiplier=>5),Voice->new(pan=>0.5,wave=>'noise',delay=>1)]],
     ['empty render',44100,0,0,0,[Voice->new]],
 ) {
     my ($name,$rate,$length,$attack,$decay,$voices)=@$case;

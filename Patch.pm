@@ -56,6 +56,7 @@ sub mutate {
 sub render {
 	my ($self, $frequency, $samplerate, $bits, $pcm) = @_;
 
+	$_->pan_gains for @{$self->voices};
 	$self->rendered_frequency($frequency);
     my $native = Synth::Native::render($self,$frequency,$samplerate,$bits,$pcm);
     return $native if defined $native;
@@ -65,7 +66,7 @@ sub render {
 		my @waves = ();
 		foreach my $voice (@{$self->voices}) {
 			my $wave = $voice->render( $samplerate, $bits, $self->length, $frequency, 1, 1 );
-			$wave = envelope( $wave, $self->attack, $self->decay, $samplerate );
+			$wave = pan_wave(envelope( $wave, $self->attack, $self->decay, $samplerate ), $voice);
 			push( @waves, $wave );
 		}
 
@@ -74,9 +75,19 @@ sub render {
 
 		# single voice
 		my $wave = $self->voices->[0]->render( $samplerate, $bits, $self->length, $frequency, 1, 1 );
-		$wave = envelope( $wave, $self->attack, $self->decay, $samplerate );
+		$wave = pan_wave(envelope( $wave, $self->attack, $self->decay, $samplerate ), $self->voices->[0]);
 		return $wave;
 	}
+}
+
+sub pan_wave {
+    my ($wave, $voice) = @_;
+    my @gains = $voice->pan_gains;
+    for my $channel (0,1) {
+        next if $gains[$channel] == 1;
+        $_ *= $gains[$channel] for @{$wave->[$channel]};
+    }
+    return $wave;
 }
 
 # Mix one channel at a time. FM carriers read only the left channel.

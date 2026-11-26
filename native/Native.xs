@@ -3,8 +3,8 @@
 #include "XSUB.h"
 #include <math.h>
 
-/* These temporary mono buffers hold doubles. Both synth channels start with
-   identical gain for sine/FM patches; independent stereo arrays are returned. */
+/* Mono oscillator/FM buffers hold doubles. Root pan is applied only in the
+   final stereo mixer, leaving modulation depth and random draws unchanged. */
 static size_t buffer_size(pTHX_ UV frames) {
     if (frames > 0x07ffffff) croak("Native render buffer too large");
     return (size_t)frames * sizeof(double);
@@ -28,7 +28,7 @@ static const double *samples_at(pTHX_ AV *buffers, SSize_t i, size_t expected) {
     return (const double *)data;
 }
 
-static SV *stereo_output(pTHX_ const double *sum, UV frames, SSize_t count, int want_pcm, SV **samples) {
+static SV *stereo_output(pTHX_ const double *sum, const double *sum_right, UV frames, SSize_t count, int want_pcm, SV **samples) {
     AV *left, *right, *pair;
     SV *pcm;
     UV i;
@@ -40,13 +40,17 @@ static SV *stereo_output(pTHX_ const double *sum, UV frames, SSize_t count, int 
     if (frames) { av_extend(left,frames-1); av_extend(right,frames-1); }
     for (i=0; i<frames; ++i) {
         double value=sum[i]/count;
+        double value_right=sum_right[i]/count;
         av_push(left,newSVnv(value));
-        av_push(right,newSVnv(value));
+        av_push(right,newSVnv(value_right));
         if (want_pcm) {
             int s = value != value ? 0 : value>32767 ? 32767 : value < -32768 ? -32768 : (int)value;
             unsigned char *p=(unsigned char *)SvPVX(pcm)+4*i;
-            p[0]=p[2]=(unsigned char)s;
-            p[1]=p[3]=(unsigned char)((unsigned int)s >> 8);
+            int r = value_right != value_right ? 0 : value_right>32767 ? 32767 : value_right < -32768 ? -32768 : (int)value_right;
+            p[0]=(unsigned char)s;
+            p[1]=(unsigned char)((unsigned int)s >> 8);
+            p[2]=(unsigned char)r;
+            p[3]=(unsigned char)((unsigned int)r >> 8);
         }
     }
     return pcm;
@@ -153,7 +157,7 @@ _finish(AV *voices, UV frames, double attack_end, double decay_frames, int want_
             XPUSHs(mix);
         } else {
             SV *samples;
-            SV *pcm = stereo_output(aTHX_ sum, frames, count, want_pcm, &samples);
+            SV *pcm = stereo_output(aTHX_ sum, sum, frames, count, want_pcm, &samples);
             EXTEND(SP,2);
             PUSHs(samples);
             PUSHs(pcm);
@@ -173,7 +177,70 @@ _finish_chord(AV *tones, UV frames)
             const double *wave = samples_at(aTHX_ tones,tone,bytes);
             for (i=0; i<frames; ++i) sum[i] += wave[i];
         }
-        pcm = stereo_output(aTHX_ sum, frames, count, 1, &samples);
+        pcm = stereo_output(aTHX_ sum, sum, frames, count, 1, &samples);
+        EXTEND(SP,2);
+        PUSHs(samples);
+        PUSHs(pcm);
+
+
+void
+_finish_panned(AV *voices, AV *pans, UV frames, double attack_end, double decay_frames, int want_pcm, int packed_only=0)
+    PPCODE:
+        size_t bytes = buffer_size(aTHX_ frames);
+        SSize_t count = av_len(voices)+1, v;
+        double decay_end = attack_end+decay_frames;
+        double decay_length = decay_end-attack_end;
+        SV *mix;
+        double *left, *right;
+        UV i;
+        if (!count || av_len(pans)+1 != count) croak("Missing native voices or pans");
+        mix = sv_2mortal(zero_buffer(aTHX_ bytes*2));
+        left = (double *)SvPVX(mix);
+        right = left+frames;
+        for (v=0; v<count; ++v) {
+            const double *wave = samples_at(aTHX_ voices,v,bytes);
+            SV **slot = av_fetch(pans,v,0);
+            double pan = slot ? SvNV(*slot) : 2;
+            double gain_l, gain_r;
+            if (!isfinite(pan) || pan < -1 || pan > 1) croak("Invalid native pan");
+            gain_l = pan>0 ? 1-pan : 1;
+            gain_r = pan<0 ? 1+pan : 1;
+            for (i=0; i<frames; ++i) {
+                double envelope, value;
+                if (i<attack_end) envelope=i/attack_end;
+                else if (i<decay_end) envelope=1-(i-attack_end)/decay_length;
+                else break;
+                value = wave[i]*envelope;
+                left[i] += value*gain_l;
+                right[i] += value*gain_r;
+            }
+        }
+        if (packed_only) {
+            for (i=0; i<frames*2; ++i) left[i] /= count;
+            XPUSHs(mix);
+        } else {
+            SV *samples;
+            SV *pcm = stereo_output(aTHX_ left, right, frames, count, want_pcm, &samples);
+            EXTEND(SP,2);
+            PUSHs(samples);
+            PUSHs(pcm);
+        }
+
+void
+_finish_chord_panned(AV *tones, UV frames)
+    PPCODE:
+        size_t bytes = buffer_size(aTHX_ frames)*2;
+        SSize_t count = av_len(tones)+1, tone;
+        SV *samples, *pcm;
+        SV *mix = sv_2mortal(zero_buffer(aTHX_ bytes));
+        double *sum = (double *)SvPVX(mix);
+        UV i;
+        if (!count) croak("Missing native chord tones");
+        for (tone=0; tone<count; ++tone) {
+            const double *wave = samples_at(aTHX_ tones,tone,bytes);
+            for (i=0; i<frames*2; ++i) sum[i] += wave[i];
+        }
+        pcm = stereo_output(aTHX_ sum, sum+frames, frames, count, 1, &samples);
         EXTEND(SP,2);
         PUSHs(samples);
         PUSHs(pcm);
