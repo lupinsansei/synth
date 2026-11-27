@@ -167,6 +167,7 @@ my $constructor=MainWindow->can('new');
    $active->chord_memory(1); $active->chord_mode('Arpeggio');
    my $held=$active->play_patch($active->Patches->{$selected},'z',440);
    my $audition=$active->play_patch($active->Patches->{$selected},undef,440);
+   $sequencer->{swing_menu}->menu->invoke('Triplet');
    $sequencer->start;
    my $token=$sequencer->{token};
    my $steps=$sequencer->{model}->steps;

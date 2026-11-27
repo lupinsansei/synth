@@ -42,7 +42,7 @@ sub _default_clock {
 sub new {
     my ($class,%args)=@_;
     die 'parent, play and stop callbacks required' unless $args{parent} && ref($args{play}) eq 'CODE' && ref($args{stop}) eq 'CODE';
-    my $self=bless {model=>MiniSequencer->new(rng=>$args{rng}),clock=>$args{clock}//_default_clock(),play=>$args{play},stop=>$args{stop},octave=>$args{octave}//3,tempo=>120,token=>0,running=>0,status=>'Stopped'},$class;
+    my $self=bless {model=>MiniSequencer->new(rng=>$args{rng}),clock=>$args{clock}//_default_clock(),play=>$args{play},stop=>$args{stop},octave=>$args{octave}//3,tempo=>120,swing=>'Straight',token=>0,running=>0,status=>'Stopped'},$class;
     die 'clock must be a callback' unless ref($self->{clock}) eq 'CODE';
     $self->{octave_changed}=$args{octave_changed};
     $self->{prepare}=$args{prepare};
@@ -59,6 +59,9 @@ sub new {
     $self->{stop_button}=$transport->Button(-text=>'Stop',-command=>sub{$self->stop})->pack(-side=>'left');
     $transport->Label(-text=>'BPM')->pack(-side=>'left');
     $self->{tempo_entry}=$transport->Spinbox(-from=>40,-to=>240,-width=>4,-textvariable=>\$self->{tempo})->pack(-side=>'left');
+    $transport->Label(-text=>'Swing')->pack(-side=>'left');
+    $self->{swing_menu}=$transport->Optionmenu(-variable=>\$self->{swing},
+        -options=>['Straight','Light','Triplet'])->pack(-side=>'left');
     $transport->Label(-text=>'Octave')->pack(-side=>'left');
     $self->{octave_down}=$transport->Button(-text=>'Octave -',-command=>sub{$self->shift_octave(-1)})->pack(-side=>'left');
     $transport->Label(-textvariable=>\$self->{octave})->pack(-side=>'left');
@@ -106,6 +109,7 @@ sub stop {
     $self->{running}=0; $self->{token}++;
     $self->{end_period}->Call(1) if delete $self->{period_active};
     delete $self->{next_step_at};
+    delete $self->{pair_swing};
     if(my $timer=delete $self->{timer}) { eval{$self->{widget}->afterCancel($timer)}; }
     $self->{stop}->(); $self->{status}='Stopped';
     if(!$self->{destroying} && Tk::Exists($self->{widget})) {$self->refresh;}
@@ -115,6 +119,9 @@ sub start {
     $self->stop;
     unless($self->{tempo}=~/^\d+$/ && $self->{tempo}>=40 && $self->{tempo}<=240) {
         $self->{status}='Choose a tempo from 40 to 240 BPM'; return;
+    }
+    unless (eval { $self->_swing_ratio; 1 }) {
+        $self->{status}='Choose Straight, Light or Triplet swing'; return;
     }
     if ($self->{prepare}) {
         $self->{prepare}->(map { $self->{model}->frequency($_,$self->_root) } 0..15);
@@ -127,6 +134,13 @@ sub start {
     $self->_tick($self->{token});
 }
 sub randomise { my $self=shift; $self->{model}->randomise; $self->start; }
+sub _swing_ratio {
+    my $self=shift;
+    my %ratios=(Straight=>0.5,Light=>0.6,Triplet=>2/3);
+    my $mode=$self->{swing}//'Straight';
+    die 'Choose Straight, Light or Triplet swing' unless exists $ratios{$mode};
+    return $ratios{$mode};
+}
 sub _tick {
     my ($self,$token)=@_;
     return unless $self->{running} && $self->{token}==$token;
@@ -139,7 +153,13 @@ sub _tick {
         # Sixteenth-note timing; changes to BPM take effect on the next tick.
         die 'Choose a tempo from 40 to 240 BPM' unless $self->{tempo}=~/^\d+$/ && $self->{tempo}>=40 && $self->{tempo}<=240;
         return unless $self->{running} && $self->{token}==$token;
-        my $period=60/($self->{tempo}*4);
+        my $ratio=$self->_swing_ratio;
+        # Latch swing for each pair so live edits cannot stretch/shorten a pair.
+        # Step parity (including rests) resets naturally on Play and loop wrap.
+        $self->{pair_swing}=$ratio if $self->{current}%2==0;
+        my $share=$self->{pair_swing}//$ratio;
+        my $period=60/($self->{tempo}*4)*2*
+            ($self->{current}%2 ? 1-$share : $share);
         my $now=$self->{clock}->();
         my $next=$self->{next_step_at}+$period;
         # Keep fractional deadlines: callback work and Tk's millisecond rounding

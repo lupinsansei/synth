@@ -36,7 +36,7 @@ sub harness {
     my @onsets;
     my $seq=bless {model=>MiniSequencer->new(rng=>sub{0.9}),widget=>$frame,
         clock=>sub{$clock->{now}},test_clock=>$clock,octave=>3,
-        tempo=>$args{tempo}//120,token=>0,running=>0,
+        tempo=>$args{tempo}//120,swing=>$args{swing}//'Straight',token=>0,running=>0,
         play=>sub{push @onsets,$clock->{now};$clock->{now}+=$args{play_cost}//0},
         stop=>sub{}},'ClockSequencer';
     return ($seq,$frame,$clock,\@onsets);
@@ -100,4 +100,59 @@ $broken->{play}=sub{die 'Simulated playback error'};
 $broken->start;
 ok(!$broken->{running} && !keys %{$broken_frame->{timers}},'playback exception stops transport without scheduling more work');
 like($broken->{status},qr/Simulated playback error/,'playback error remains visible');
+# Swing retains pair/bar duration despite callback overhead and timer rounding.
+for my $mode (['Straight',0.5],['Light',0.6],['Triplet',2/3]) {
+    for my $bpm (40,120,137,240) {
+        my ($s,$f,$c,$notes)=harness(tempo=>$bpm,swing=>$mode->[0],play_cost=>0.005);
+        my $pattern=$s->{model}->steps;
+        $s->start;
+        $f->fire for 1..64;
+        my $base=60/($bpm*4);
+        my $worst=0;
+        for my $i (0..$#$notes) {
+            my $expected=int($i/2)*2*$base+($i%2 ? 2*$base*$mode->[1] : 0);
+            my $error=abs($notes->[$i]-$notes->[0]-$expected);
+            $worst=$error if $error>$worst;
+        }
+        cmp_ok($worst,'<',0.00101,"$mode->[0] at $bpm BPM preserves alternating deadlines across four bars");
+        is_deeply($s->{model}->steps,$pattern,'swing leaves pitches and pattern untouched');
+        is($s->{tempo},$bpm,'swing leaves BPM untouched');
+        my ($pending)=values %{$f->{timers}};
+        $s->stop;
+        ok(!keys %{$f->{timers}},'swing Stop cancels pending timer');
+        ok(!exists $s->{pair_swing},'Stop discards old swing phase');
+        $c->{now}+=10;
+        $s->start;
+        my $n=@$notes;
+        $pending->[1]->();
+        is(scalar @$notes,$n,'stale swing timer cannot play after restart');
+        $f->fire;
+        cmp_ok(abs($notes->[-1]-$notes->[-2]-2*$base*$mode->[1]),'<',0.00101,'restart begins with the long half');
+        $s->stop;
+    }
+}
+my ($swing,$sf,$sc,$sn)=harness(swing=>'Light',refresh_cost=>0);
+$swing->{model}{steps}[1]=undef;
+$swing->start;
+$swing->{swing}='Triplet';
+$sf->fire; # Silent second step must finish the latched 60:40 pair.
+is(scalar @$sn,1,'swung rest does not trigger a note');
+$sf->fire;
+cmp_ok(abs($sn->[1]-$sn->[0]-0.25),'<',0.00101,'rest and mid-pair edit preserve pair duration');
+$sf->fire;
+cmp_ok(abs($sn->[2]-$sn->[1]-1/6),'<',0.00101,'new swing applies to next pair');
+$sf->fire;
+cmp_ok(abs($sn->[3]-$sn->[1]-0.25),'<',0.00101,'new triplet pair keeps the same total');
+$swing->{swing}='Straight';
+$sf->fire; $sf->fire; $sf->fire;
+cmp_ok(abs($sn->[-1]-$sn->[-2]-0.125),'<',0.00101,'switching back restores straight timing');
+$swing->{swing}='Triplet';
+$sf->fire(3);
+my ($swung_timer)=values %{$sf->{timers}};
+cmp_ok($swung_timer->[0]-$sc->{now},'>=',1/6-1e-9,'stall under swing does not schedule a catch-up burst');
+$swing->{swing}='invalid'; $sf->fire;
+ok(!$swing->{running} && !keys %{$sf->{timers}},'invalid live swing stops cleanly');
+like($swing->{status},qr/Straight, Light or Triplet/,'invalid swing is explained');
+$swing->start;
+ok(!$swing->{running} && !keys %{$sf->{timers}},'invalid swing cannot restart transport');
 done_testing;

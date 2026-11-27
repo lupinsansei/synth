@@ -147,6 +147,11 @@ The clock uses monotonic deadlines so playback setup and UI refresh do not add
 to every step's duration. Fractional intervals are preserved; after a long stall,
 timing restarts from the current callback rather than bursting through missed
 notes. Actual audio-device latency is not compensated.
+**Swing** defaults to **Straight** (equal sixteenths). **Light** divides each
+pair 60:40; **Triplet** divides it 2:1. Each pair keeps the same total duration
+at the selected BPM, including rests. Swing edits take effect at the next pair,
+without moving the pending step; Play restarts on the long half of the pair.
+The swing choice is session-only; notes, BPM and patch banks are unchanged.
 Choose a major, minor or minor-pentatonic scale for the next randomisation.
 The numbered buttons show notes/rests; click to mute or restore a step's original
 pitch. Clicking an original rest generates a note in the selected scale. Muting
